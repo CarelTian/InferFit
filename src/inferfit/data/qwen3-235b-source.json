@@ -1,0 +1,12 @@
+{
+  "model_id": "Qwen/Qwen3-235B-A22B",
+  "revision": "8efa61729e24bd65b1d152b5ab5409052aa80e65",
+  "url": "https://huggingface.co/Qwen/Qwen3-235B-A22B/resolve/8efa61729e24bd65b1d152b5ab5409052aa80e65/config.json",
+  "retrieved_at": "2026-11-05",
+  "safetensors": {
+    "parameters": {
+      "BF16": 235093634560
+    },
+    "total": 235093634560
+  }
+}

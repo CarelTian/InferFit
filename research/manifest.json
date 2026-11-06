@@ -1,0 +1,62 @@
+[
+  {
+    "file": "vllm-deepseek-v019.py",
+    "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/model_executor/models/deepseek_v2.py",
+    "sha256": "c0f27b22e0023d42861ed4763e2a23fe305d049c6c45f6bd3ac05299d8e76da2"
+  },
+  {
+    "file": "vllm-glm-v019.py",
+    "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/model_executor/models/glm4_moe_lite.py",
+    "sha256": "0d56282350abd5444137592cb936c0d0b873caf723ada6f840918f09ce9ce6fb"
+  },
+  {
+    "file": "vllm-indexer-v019.py",
+    "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/v1/attention/backends/mla/indexer.py",
+    "sha256": "3e207b8c4bf7a5b3206070c9dad7d6a09481366a9499119e712871b3ffdc2f68"
+  },
+  {
+    "file": "vllm-kv-v019.py",
+    "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/v1/kv_cache_interface.py",
+    "sha256": "52237e1865f2bd47ef572821ca55ef2261fc96e0cee2f34dae0f1c7c4d0b15a7"
+  },
+  {
+    "file": "vllm-parallel-v019.py",
+    "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/config/parallel.py",
+    "sha256": "308996eda88b1cd0904dc6918d3d2140dfa4620c8a80e73705cf209d443c4478"
+  },
+  {
+    "file": "vllm-registry-v019.py",
+    "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/model_executor/models/registry.py",
+    "sha256": "3efaece3f48dc76d8bd6bd6825830f778365f8b2976ef4d1b42de0c9d59620c3"
+  },
+  {
+    "file": "vllm-sparse-v019.py",
+    "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/model_executor/layers/sparse_attn_indexer.py",
+    "sha256": "9dd57ee0674d073c7951bf82bbd7fe75f6f32ce225c73cc61a559cf67787323f"
+  },
+  {
+    "file": "vllm-mla-v019.py",
+    "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/model_executor/layers/mla.py",
+    "sha256": "4919d21219ee82502b16c645fb1d52333be47bd3c04fd60bd323de88c382fc63"
+  },
+  {
+    "file": "bf16-config.json",
+    "url": "https://huggingface.co/zai-org/GLM-5.1/resolve/26e1bd6e011feb778d25ae34b09b07074139d92d/config.json",
+    "sha256": "726e45e28d1be1636a5834048a4101a2cfe384819ad2ebe08d41f6fe04656526"
+  },
+  {
+    "file": "bf16-model.safetensors.index.json",
+    "url": "https://huggingface.co/zai-org/GLM-5.1/resolve/26e1bd6e011feb778d25ae34b09b07074139d92d/model.safetensors.index.json",
+    "sha256": "8c05186d79110d64c68ec6045ef93c4807aad09c8bc8b78b2d741316bff03bb0"
+  },
+  {
+    "file": "fp8-config.json",
+    "url": "https://huggingface.co/zai-org/GLM-5.1-FP8/resolve/f396cf805182f4ca10fa675e1a99815b3ca384db/config.json",
+    "sha256": "69b4e81fafca7389fa1e102046ea13aa1c6ec9ed64a9a00f2056fe402034c8ec"
+  },
+  {
+    "file": "fp8-model.safetensors.index.json",
+    "url": "https://huggingface.co/zai-org/GLM-5.1-FP8/resolve/f396cf805182f4ca10fa675e1a99815b3ca384db/model.safetensors.index.json",
+    "sha256": "a5c43b9fd27c3ba067265426673431c9cc747d8a5b27e1dab9df9c0fd575e371"
+  }
+]

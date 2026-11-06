@@ -1,0 +1,170 @@
+[
+  {
+    "case": "8gpu-fp8-bf16kv",
+    "engine": "vllm",
+    "status": "fail",
+    "parallelism": {
+      "tp": 8,
+      "dp": 1,
+      "ep": 8,
+      "pp": 1,
+      "num_gpus": 8,
+      "stage_layers": null
+    },
+    "stage_layers": [
+      78
+    ],
+    "nodes_required": 1,
+    "minimum_headroom_gib": -29.088947772979736,
+    "logical_kv_bytes_per_token": 100152,
+    "kv_bytes_per_token_per_rank_min": 100152,
+    "kv_bytes_per_token_per_rank_max": 100152,
+    "deployment_verified": false
+  },
+  {
+    "case": "12gpu-balanced-fp8-bf16kv",
+    "engine": "vllm",
+    "status": "fail",
+    "parallelism": {
+      "tp": 4,
+      "dp": 1,
+      "ep": 4,
+      "pp": 3,
+      "num_gpus": 12,
+      "stage_layers": null
+    },
+    "stage_layers": [
+      26,
+      26,
+      26
+    ],
+    "nodes_required": 2,
+    "minimum_headroom_gib": -0.9092268943786621,
+    "logical_kv_bytes_per_token": 100152,
+    "kv_bytes_per_token_per_rank_min": 33384,
+    "kv_bytes_per_token_per_rank_max": 33384,
+    "deployment_verified": false
+  },
+  {
+    "case": "12gpu-optimized-fp8-bf16kv",
+    "engine": "vllm",
+    "status": "pass",
+    "parallelism": {
+      "tp": 4,
+      "dp": 1,
+      "ep": 4,
+      "pp": 3,
+      "num_gpus": 12,
+      "stage_layers": [
+        28,
+        25,
+        25
+      ]
+    },
+    "stage_layers": [
+      28,
+      25,
+      25
+    ],
+    "nodes_required": 2,
+    "minimum_headroom_gib": 1.0638697147369385,
+    "logical_kv_bytes_per_token": 100152,
+    "kv_bytes_per_token_per_rank_min": 32100,
+    "kv_bytes_per_token_per_rank_max": 35952,
+    "deployment_verified": false
+  },
+  {
+    "case": "16gpu-fp8-bf16kv",
+    "engine": "vllm",
+    "status": "pass",
+    "parallelism": {
+      "tp": 8,
+      "dp": 1,
+      "ep": 8,
+      "pp": 2,
+      "num_gpus": 16,
+      "stage_layers": null
+    },
+    "stage_layers": [
+      39,
+      39
+    ],
+    "nodes_required": 2,
+    "minimum_headroom_gib": 13.918299376964569,
+    "logical_kv_bytes_per_token": 100152,
+    "kv_bytes_per_token_per_rank_min": 50076,
+    "kv_bytes_per_token_per_rank_max": 50076,
+    "deployment_verified": false
+  },
+  {
+    "case": "16gpu-fp8-fp8kv",
+    "engine": "vllm",
+    "status": "pass",
+    "parallelism": {
+      "tp": 8,
+      "dp": 1,
+      "ep": 8,
+      "pp": 2,
+      "num_gpus": 16,
+      "stage_layers": null
+    },
+    "stage_layers": [
+      39,
+      39
+    ],
+    "nodes_required": 2,
+    "minimum_headroom_gib": 13.918299376964569,
+    "logical_kv_bytes_per_token": 61464,
+    "kv_bytes_per_token_per_rank_min": 30732,
+    "kv_bytes_per_token_per_rank_max": 30732,
+    "deployment_verified": false
+  },
+  {
+    "case": "16gpu-bf16-bf16kv",
+    "engine": "vllm",
+    "status": "fail",
+    "parallelism": {
+      "tp": 8,
+      "dp": 1,
+      "ep": 8,
+      "pp": 2,
+      "num_gpus": 16,
+      "stage_layers": null
+    },
+    "stage_layers": [
+      39,
+      39
+    ],
+    "nodes_required": 2,
+    "minimum_headroom_gib": -31.57848882675171,
+    "logical_kv_bytes_per_token": 100152,
+    "kv_bytes_per_token_per_rank_min": 50076,
+    "kv_bytes_per_token_per_rank_max": 50076,
+    "deployment_verified": false
+  },
+  {
+    "case": "32gpu-bf16-bf16kv",
+    "engine": "vllm",
+    "status": "pass",
+    "parallelism": {
+      "tp": 8,
+      "dp": 1,
+      "ep": 8,
+      "pp": 4,
+      "num_gpus": 32,
+      "stage_layers": null
+    },
+    "stage_layers": [
+      20,
+      20,
+      19,
+      19
+    ],
+    "nodes_required": 4,
+    "minimum_headroom_gib": 13.177202224731445,
+    "logical_kv_bytes_per_token": 100152,
+    "kv_bytes_per_token_per_rank_min": 24396,
+    "kv_bytes_per_token_per_rank_max": 25680,
+    "deployment_verified": false
+  }
+]

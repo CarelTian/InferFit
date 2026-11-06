@@ -1,0 +1,11 @@
+{
+  "id": "zai-org/GLM-5.1",
+  "sha": "26e1bd6e011feb778d25ae34b09b07074139d92d",
+  "safetensors": {
+    "parameters": {
+      "BF16": 753864119552,
+      "F32": 19456
+    },
+    "total": 753864139008
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "model": "glm-5.1",
+  "hardware": {
+    "name": "NVIDIA H800 80GB nominal",
+    "memory_bytes": 80000000000,
+    "gpus_per_node": 8,
+    "compute_capability": 90,
+    "utilization": 0.9,
+    "safety_margin_bytes": 1073741824,
+    "inter_node_network": true,
+    "allow_cross_node_tp": false
+  },
+  "parallelism": {"tp": 8, "dp": 1, "ep": 8, "pp": 2, "num_gpus": 16},
+  "weight_quantization": "fp8_block",
+  "kv_quantization": "bf16",
+  "workload": {
+    "context_tokens": 8192,
+    "concurrency_per_dp": 1,
+    "max_batch_tokens": 2048,
+    "block_size": 64
+  }
+}

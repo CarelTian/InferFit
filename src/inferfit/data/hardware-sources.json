@@ -1,0 +1,12 @@
+{
+  "retrieved_at": "2026-11-05",
+  "capacity_policy": "NVIDIA fixtures are nominal decimal GB, never measured free/usable memory; explicit memory_bytes overrides. ZW810 has no default capacity or CUDA capability.",
+  "sources": {
+    "h100-sxm-80gb": "https://www.nvidia.com/en-us/data-center/h100/",
+    "h20-96gb": "https://nvidia.github.io/cosmos-framework/skills/cookbooks/cosmos3/nim/support-matrix/",
+    "a100-40gb": "https://images.nvidia.com/data-center/a100/a100-datasheet.pdf",
+    "a100-80gb": "https://images.nvidia.com/data-center/a100/a100-datasheet.pdf",
+    "ppu-zw810": "https://help.aliyun.com/en/document_detail/2871797.html"
+  },
+  "ppu_test_fixture": "96 GiB is a caller-provided illustrative capacity used only to verify backend rejection; not a claim about ZW810 specification."
+}

@@ -1,0 +1,20 @@
+{
+  "model": {
+    "profile_path": "qwen3-235b.model.json"
+  },
+  "hardware": {
+    "profile_path": "h100.hardware.json"
+  },
+  "runtime": {
+    "profile_path": "vllm.runtime.json"
+  },
+  "weight_quantization": "bf16",
+  "parallelism": {
+    "tp": 8,
+    "dp": 1,
+    "ep": 8,
+    "pp": 1,
+    "num_gpus": 8,
+    "stage_layers": null
+  }
+}

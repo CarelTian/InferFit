@@ -1,0 +1,13 @@
+{
+  "model_id": "zai-org/GLM-5-FP8",
+  "revision": "4f96cc5eec29dcee5d6ded54f7ffe889438f9516",
+  "safetensors": {
+    "parameters": {
+      "BF16": 2114950400,
+      "F8_E4M3": 751749169152,
+      "F32": 19456
+    },
+    "total": 753864139008
+  },
+  "retrieved_at": "2026-11-05"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "zai-org/GLM-5.1-FP8",
+  "sha": "f396cf805182f4ca10fa675e1a99815b3ca384db",
+  "safetensors": {
+    "parameters": {
+      "BF16": 2114950400,
+      "F8_E4M3": 751749169152,
+      "F32": 19456
+    },
+    "total": 753864139008
+  }
+}

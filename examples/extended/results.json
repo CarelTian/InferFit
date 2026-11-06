@@ -1,0 +1,594 @@
+[
+  {
+    "name": "qwen-h20-96gb-vllm-bf16-4gpu",
+    "mode": "check",
+    "status": "fail",
+    "memory_pass": false,
+    "minimum_headroom_bytes": -38738131968,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [
+      "GPU rank 0 exceeds budget by 38738131968 bytes"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h20-96gb-vllm-bf16-8gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 19924190208,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h20-96gb-vllm-bf16-16gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 49403994624,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h20-96gb-vllm-bf16-24gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 58762797056,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h20-96gb-vllm-fp8",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 19697321472,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h100-sxm-80gb-vllm-bf16-4gpu",
+    "mode": "check",
+    "status": "fail",
+    "memory_pass": false,
+    "minimum_headroom_bytes": -53138131968,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [
+      "GPU rank 0 exceeds budget by 53138131968 bytes"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h100-sxm-80gb-vllm-bf16-8gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 5524190208,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h100-sxm-80gb-vllm-bf16-16gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 35003994624,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h100-sxm-80gb-vllm-bf16-24gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 44362797056,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h100-sxm-80gb-vllm-fp8",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 5297321472,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-80gb-vllm-bf16-4gpu",
+    "mode": "check",
+    "status": "fail",
+    "memory_pass": false,
+    "minimum_headroom_bytes": -53138131968,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [
+      "GPU rank 0 exceeds budget by 53138131968 bytes"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-80gb-vllm-bf16-8gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 5524190208,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-80gb-vllm-bf16-16gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 35003994624,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-80gb-vllm-bf16-24gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 44362797056,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-80gb-vllm-fp8",
+    "mode": "check",
+    "status": "unsupported",
+    "memory_pass": null,
+    "minimum_headroom_bytes": null,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [
+      "FP8 runtime requires compatible GPU kernels"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-40gb-vllm-bf16-4gpu",
+    "mode": "check",
+    "status": "fail",
+    "memory_pass": false,
+    "minimum_headroom_bytes": -89138131968,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [
+      "GPU rank 0 exceeds budget by 89138131968 bytes"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-40gb-vllm-bf16-8gpu",
+    "mode": "check",
+    "status": "fail",
+    "memory_pass": false,
+    "minimum_headroom_bytes": -30475809792,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [
+      "GPU rank 0 exceeds budget by 30475809792 bytes"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-40gb-vllm-bf16-16gpu",
+    "mode": "check",
+    "status": "fail",
+    "memory_pass": false,
+    "minimum_headroom_bytes": -996005376,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [
+      "GPU rank 8 exceeds budget by 996005376 bytes"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-40gb-vllm-bf16-24gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 8362797056,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-40gb-vllm-fp8",
+    "mode": "check",
+    "status": "unsupported",
+    "memory_pass": null,
+    "minimum_headroom_bytes": null,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [
+      "FP8 runtime requires compatible GPU kernels"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "ppu-zw810-vllm-unsupported",
+    "mode": "check",
+    "status": "unsupported",
+    "memory_pass": null,
+    "minimum_headroom_bytes": null,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [
+      "No inspected PPU/non-CUDA runtime adapter; supply actual memory for inventory only"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "deepseek-v41-flash-vllm-unsupported",
+    "mode": "check",
+    "status": "unsupported",
+    "memory_pass": null,
+    "minimum_headroom_bytes": null,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [
+      "DeepSeek V4/V4.1 requires dedicated compressed/shared cache, Engram and mixed quantization adapters; no capacity pass is inferred"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "pd-qwen-h100-h20-vllm-0-handoffs",
+    "mode": "pd-check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 5255754752,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "pd-qwen-h100-h20-vllm-2-handoffs",
+    "mode": "pd-check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 4875185664,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "pd-decode-oom-vllm",
+    "mode": "pd-check",
+    "status": "fail",
+    "memory_pass": false,
+    "minimum_headroom_bytes": -30829115520,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [
+      "GPU rank 0 exceeds budget by 30829115520 bytes"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "pd-overlap-vllm",
+    "mode": "pd-check",
+    "status": "invalid",
+    "memory_pass": null,
+    "minimum_headroom_bytes": null,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [
+      "Prefill and decode pools overlap physical GPUs"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "pd-kv-conversion-vllm",
+    "mode": "pd-check",
+    "status": "unsupported",
+    "memory_pass": null,
+    "minimum_headroom_bytes": null,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [
+      "PD precision conversion is not modeled; both pools must use identical formats"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h20-96gb-sglang-bf16-4gpu",
+    "mode": "check",
+    "status": "fail",
+    "memory_pass": false,
+    "minimum_headroom_bytes": -39403944976,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [
+      "GPU rank 0 exceeds budget by 39403944976 bytes"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h20-96gb-sglang-bf16-8gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 19258377200,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h20-96gb-sglang-bf16-16gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 48936854000,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h20-96gb-sglang-bf16-24gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 58359054320,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h20-96gb-sglang-fp8",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 19031508464,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h100-sxm-80gb-sglang-bf16-4gpu",
+    "mode": "check",
+    "status": "fail",
+    "memory_pass": false,
+    "minimum_headroom_bytes": -53803944976,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [
+      "GPU rank 0 exceeds budget by 53803944976 bytes"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h100-sxm-80gb-sglang-bf16-8gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 4858377200,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h100-sxm-80gb-sglang-bf16-16gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 34536854000,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h100-sxm-80gb-sglang-bf16-24gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 43959054320,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-h100-sxm-80gb-sglang-fp8",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 4631508464,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-80gb-sglang-bf16-4gpu",
+    "mode": "check",
+    "status": "fail",
+    "memory_pass": false,
+    "minimum_headroom_bytes": -53803944976,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [
+      "GPU rank 0 exceeds budget by 53803944976 bytes"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-80gb-sglang-bf16-8gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 4858377200,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-80gb-sglang-bf16-16gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 34536854000,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-80gb-sglang-bf16-24gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 43959054320,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-80gb-sglang-fp8",
+    "mode": "check",
+    "status": "unsupported",
+    "memory_pass": null,
+    "minimum_headroom_bytes": null,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [
+      "FP8 runtime requires compatible GPU kernels"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-40gb-sglang-bf16-4gpu",
+    "mode": "check",
+    "status": "fail",
+    "memory_pass": false,
+    "minimum_headroom_bytes": -89803944976,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [
+      "GPU rank 0 exceeds budget by 89803944976 bytes"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-40gb-sglang-bf16-8gpu",
+    "mode": "check",
+    "status": "fail",
+    "memory_pass": false,
+    "minimum_headroom_bytes": -31141622800,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [
+      "GPU rank 0 exceeds budget by 31141622800 bytes"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-40gb-sglang-bf16-16gpu",
+    "mode": "check",
+    "status": "fail",
+    "memory_pass": false,
+    "minimum_headroom_bytes": -1463146000,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [
+      "GPU rank 8 exceeds budget by 1463146000 bytes"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-40gb-sglang-bf16-24gpu",
+    "mode": "check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 7959054320,
+    "kv_bytes_per_token_logical": 192512,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "qwen-a100-40gb-sglang-fp8",
+    "mode": "check",
+    "status": "unsupported",
+    "memory_pass": null,
+    "minimum_headroom_bytes": null,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [
+      "FP8 runtime requires compatible GPU kernels"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "ppu-zw810-sglang-unsupported",
+    "mode": "check",
+    "status": "unsupported",
+    "memory_pass": null,
+    "minimum_headroom_bytes": null,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [
+      "No inspected PPU/non-CUDA runtime adapter; supply actual memory for inventory only"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "deepseek-v41-flash-sglang-unsupported",
+    "mode": "check",
+    "status": "unsupported",
+    "memory_pass": null,
+    "minimum_headroom_bytes": null,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [
+      "DeepSeek V4/V4.1 requires dedicated compressed/shared cache, Engram and mixed quantization adapters; no capacity pass is inferred"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "pd-qwen-h100-h20-sglang-0-handoffs",
+    "mode": "pd-check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 4589941744,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "pd-qwen-h100-h20-sglang-2-handoffs",
+    "mode": "pd-check",
+    "status": "pass",
+    "memory_pass": true,
+    "minimum_headroom_bytes": 3801347024,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [],
+    "deployment_verified": false
+  },
+  {
+    "name": "pd-decode-oom-sglang",
+    "mode": "pd-check",
+    "status": "fail",
+    "memory_pass": false,
+    "minimum_headroom_bytes": -31902929952,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [
+      "GPU rank 0 exceeds budget by 31902929952 bytes"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "pd-overlap-sglang",
+    "mode": "pd-check",
+    "status": "invalid",
+    "memory_pass": null,
+    "minimum_headroom_bytes": null,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [
+      "Prefill and decode pools overlap physical GPUs"
+    ],
+    "deployment_verified": false
+  },
+  {
+    "name": "pd-kv-conversion-sglang",
+    "mode": "pd-check",
+    "status": "unsupported",
+    "memory_pass": null,
+    "minimum_headroom_bytes": null,
+    "kv_bytes_per_token_logical": null,
+    "reasons": [
+      "PD precision conversion is not modeled; both pools must use identical formats"
+    ],
+    "deployment_verified": false
+  }
+]
