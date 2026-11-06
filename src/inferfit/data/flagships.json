@@ -1,0 +1,44 @@
+[
+  {
+    "alias": "qwen3.8-2.4t-a95b",
+    "id": "Qwen/Qwen3.8-2.4T-A95B",
+    "config_file": "qwen38-config.json",
+    "config_sha256": "10a43020ea4f00d4ad447d052829de91aa70fabfe6fe8e81868455fcc5cd1e35",
+    "revision": "207bd685a7e3696cfaff12ded7c6a7ea0f88c996",
+    "revision_kind": "hf_commit",
+    "source_url": "https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B/raw/main/config.json",
+    "checked_at": "2026-11-06",
+    "support": "analytical",
+    "sglang_version": "0.5.23",
+    "blockers": []
+  },
+  {
+    "alias": "glm-5.3",
+    "id": "zai-org/GLM-5.3",
+    "config_file": "glm53-config.json",
+    "config_sha256": "3ac72612095574542f7fff847ada8e59d9199dd8af44bdf625d7e02615572e69",
+    "revision": "snapshot-2026-11-06-3ac726120955",
+    "revision_kind": "content_addressed_snapshot",
+    "source_url": "https://huggingface.co/zai-org/GLM-5.3/raw/main/config.json",
+    "checked_at": "2026-11-06",
+    "support": "analytical",
+    "sglang_version": "0.5.23",
+    "blockers": []
+  },
+  {
+    "alias": "deepseek-v4.1-flash-1017",
+    "id": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    "config_file": "deepseek41-config.json",
+    "config_sha256": "8be45ce0476004a3f529fd896115a4a2e800a129ad2d3ec05b16050f52e21879",
+    "revision": "snapshot-2026-11-06-8be45ce04760",
+    "revision_kind": "content_addressed_snapshot",
+    "source_url": "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017/raw/main/config.json",
+    "checked_at": "2026-11-06",
+    "support": "recognized_only",
+    "sglang_version": "0.5.23",
+    "blockers": [
+      "DeepSeek V4.1 native FP8 32x32 UE8M0 / FP4 expert storage is not modeled; generic FP8 128x128 is invalid",
+      "Shared compressed KV, candidate/index pools, Engram placement and vision residency require a dedicated capacity adapter; no capacity pass or deployable search result is inferred"
+    ]
+  }
+]

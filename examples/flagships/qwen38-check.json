@@ -1,0 +1,26 @@
+{
+  "hardware": {
+    "memory_bytes": 80000000000,
+    "gpus_per_node": 8,
+    "allow_cross_node_tp": true
+  },
+  "runtime": {
+    "engine": "sglang",
+    "version": "0.5.23"
+  },
+  "workload": {
+    "context_tokens": 8192,
+    "concurrency_per_dp": 1,
+    "max_batch_tokens": 2048
+  },
+  "kv_quantization": "bf16",
+  "model": "qwen3.8-2.4t-a95b",
+  "weight_quantization": "bf16",
+  "parallelism": {
+    "tp": 8,
+    "dp": 1,
+    "ep": 8,
+    "pp": 12,
+    "num_gpus": 96
+  }
+}

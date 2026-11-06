@@ -1,0 +1,95 @@
+{
+  "date": "2026-11-06",
+  "scope": "Explicit example search spaces only; not a global minimum or GPU deployment test",
+  "gpu_execution_performed": false,
+  "hardware_memory_bytes": 80000000000,
+  "context_tokens": 8192,
+  "sglang_version": "0.5.23",
+  "models": {
+    "Qwen/Qwen3.8-2.4T-A95B": {
+      "evaluated": 21,
+      "search_space": {
+        "tp_values": [
+          4,
+          8
+        ],
+        "dp_values": [
+          1
+        ],
+        "pp_values": [
+          8,
+          12,
+          16
+        ],
+        "ep_values": "engine_legal_mesh_degrees",
+        "gpu_counts": null,
+        "max_gpus": 128,
+        "optimize_pp": true,
+        "returned_limit": 10,
+        "passing_candidates_total": 8
+      },
+      "minimum_num_gpus": 96,
+      "best_parallelism": {
+        "tp": 8,
+        "dp": 1,
+        "ep": 1,
+        "pp": 12,
+        "num_gpus": 96,
+        "stage_layers": [
+          7,
+          7,
+          7,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          7
+        ]
+      },
+      "minimum_headroom_bytes": 11333767088,
+      "weight_quantization": "bf16",
+      "kv_quantization": "bf16"
+    },
+    "zai-org/GLM-5.3": {
+      "evaluated": 9,
+      "search_space": {
+        "tp_values": [
+          8,
+          16
+        ],
+        "dp_values": [
+          1
+        ],
+        "pp_values": [
+          1
+        ],
+        "ep_values": "engine_legal_mesh_degrees",
+        "gpu_counts": null,
+        "max_gpus": 16,
+        "optimize_pp": true,
+        "returned_limit": 10,
+        "passing_candidates_total": 5
+      },
+      "minimum_num_gpus": 16,
+      "best_parallelism": {
+        "tp": 16,
+        "dp": 1,
+        "ep": 1,
+        "pp": 1,
+        "num_gpus": 16,
+        "stage_layers": null
+      },
+      "minimum_headroom_bytes": 14680099120,
+      "weight_quantization": "fp8_block",
+      "kv_quantization": "bf16"
+    },
+    "deepseek-ai/DeepSeek-V4.1-Flash-1017": {
+      "status": "unsupported",
+      "capacity_adapter_complete": false
+    }
+  }
+}

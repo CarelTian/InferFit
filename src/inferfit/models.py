@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import replace
 import json
 from importlib.resources import files
 from pathlib import Path
@@ -47,6 +48,9 @@ def glm_profile(config: dict[str, Any], *, model_id: str = "custom-glm-dsa",
         raise ValueError("Invalid first_k_dense_replace")
     if type(shared) is not int or shared < 0:
         raise ValueError("Invalid n_shared_experts")
+    indexers = c.get("indexer_types", ["full"] * layers)
+    if len(indexers) != layers or indexers[0] != "full" or any(x not in {"full", "shared"} for x in indexers):
+        raise UnsupportedModelError("indexer_types must describe every base layer and start with full")
     out: list[TensorSpec] = []
 
     def add(name: str, shape: tuple[int, ...], placement: str = "replicated",
@@ -108,6 +112,9 @@ def glm_profile(config: dict[str, Any], *, model_id: str = "custom-glm-dsa",
             add(p + ".eh_proj.weight", (h, 2 * h), layer=layer)
             for name in ("enorm", "hnorm", "shared_head.norm"):
                 add(f"{p}.{name}.weight", (h,), layer=layer)
+    out = [t for t in out if t.layer is None or t.layer >= layers or indexers[t.layer] == "full" or ".indexer." not in t.name]
+    if c.get("moe_router_dtype") == "float32":
+        out = [replace(t, dtype="F32") if t.name.endswith(".mlp.gate.weight") else t for t in out]
     return ModelProfile(model_id, revision, c, tuple(out), "mla_dsa", {
         "tensor_inventory": "architecture_derived",
         "mtp_included": include_mtp,
@@ -181,7 +188,7 @@ def register_model_adapter(model_type: str, builder) -> None:
     """Register trusted Python config conversion; JSON never imports plugins."""
     if not isinstance(model_type,str) or not model_type or not callable(builder):
         raise ValueError("A model_type and callable builder are required")
-    if model_type in _MODEL_ADAPTERS or model_type in {"glm_moe_dsa","qwen3_moe","llama","qwen2","qwen3"}:
+    if model_type in _MODEL_ADAPTERS or model_type in {"glm_moe_dsa","qwen3_moe","llama","qwen2","qwen3","qwen3_5_moe_text"}:
         raise ValueError("Adapter already registered; built-ins cannot be replaced")
     _MODEL_ADAPTERS[model_type] = builder
 
@@ -191,6 +198,9 @@ def from_config(config: dict[str, Any] | str | Path, **kwargs: Any) -> ModelProf
     if config.get("model_type") in _MODEL_ADAPTERS:
         from .profiles import validate_model_profile
         return validate_model_profile(_MODEL_ADAPTERS[config["model_type"]](copy.deepcopy(config), **kwargs))
+    if config.get("model_type") == "qwen3_5_moe_text":
+        from .flagships import qwen35_moe_profile
+        return qwen35_moe_profile(config, **kwargs)
     if str(config.get("model_type", "")).startswith("deepseek_v4"):
         raise UnsupportedModelError("DeepSeek V4/V4.1 requires dedicated compressed/shared cache, Engram and mixed quantization adapters; no capacity pass is inferred")
     if config.get("model_type") == "qwen3_moe":

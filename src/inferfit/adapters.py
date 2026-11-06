@@ -249,4 +249,39 @@ def get_adapter(runtime: RuntimeProfile) -> VllmAdapter:
         return VllmAdapter()
     if runtime.engine == "sglang" and runtime.version == SGLANG_VERSION:
         return SglangAdapter()
-    raise ValueError("Supported pinned adapters: vllm 0.19.0, sglang " + SGLANG_VERSION)
+    if runtime.engine == "sglang" and runtime.version == "0.5.23":
+        return SglangFlagshipAdapter()
+    raise ValueError("Supported pinned adapters: vllm 0.19.0, sglang " + SGLANG_VERSION + ", sglang 0.5.23 (flagship scope)")
+
+
+@dataclass(frozen=True)
+class SglangFlagshipAdapter(SglangAdapter):
+    """Conservative 0.5.23 eager contract; no implicit DP or state conversion."""
+    version: str = "0.5.23"
+
+    def validate(self, model, h, p, w, r, fmt, kv):
+        errors = super().validate(model, h, p, w, r, fmt, kv)
+        if model.architecture != "gdn_moe" and "shared" not in model.config.get("indexer_types", []):
+            errors.append("SGLang 0.5.23 adapter is scoped to hybrid GDN and shared-index GLM")
+        if r.sglang_dp_attention or p.dp != 1:
+            errors.append("Flagship adapter currently requires DP=1; new DP layer-boundary mappings are not validated")
+        if kv != "bf16":
+            errors.append("Flagship cache contract currently covers BF16 KV only")
+        if model.architecture == "gdn_moe":
+            from .flagships import recurrent_state_bytes
+            try:
+                recurrent_state_bytes(model, tp=p.tp)
+            except ValueError as error:
+                errors.append(str(error))
+            if fmt != "bf16":
+                errors.append("Hybrid GDN weight contract currently covers BF16 only; FP8 checkpoint exclusions need validation")
+        elif p.pp != 1:
+            errors.append("Shared-index GLM currently requires PP=1; cross-stage index ownership is not validated")
+        return errors
+
+    def engine_config(self, model, h, p, w, r, fmt, kv, budget, counts, tokens):
+        args, env = super().engine_config(model, h, p, w, r, fmt, kv, budget, counts, tokens)
+        if model.architecture == "gdn_moe":
+            args["max_mamba_cache_size"] = w.concurrency_per_dp
+            env.update(SGLANG_MAMBA_SSM_DTYPE="float32", SGLANG_MAMBA_CONV_DTYPE="bfloat16")
+        return args, env

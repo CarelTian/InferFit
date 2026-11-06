@@ -41,6 +41,9 @@ def evaluate_document(document: dict[str, Any], *, mode: str = "check", base: Pa
         model = load_glm51()
     elif ref == "qwen3-235b-a22b":
         model = load_qwen3_235b()
+    elif isinstance(ref, str):
+        from .flagships import load_model
+        model = load_model(ref)
     elif isinstance(ref,dict) and "profile_path" in ref:
         if set(ref)!={"profile_path"}:raise ValueError("model profile_path must be exclusive")
         model=load_model_profile(base / ref["profile_path"])
@@ -94,10 +97,20 @@ def evaluate_document(document: dict[str, Any], *, mode: str = "check", base: Pa
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="inferfit", description="InferFit: per-GPU LLM memory preflight and finite-layout search")
-    parser.add_argument("mode", choices=("check", "search", "pd-check"))
-    parser.add_argument("scenario", type=Path, help="Scenario JSON (offline)")
+    parser.add_argument("mode", choices=("check", "search", "pd-check", "models"))
+    parser.add_argument("scenario", type=Path, nargs="?", help="Scenario JSON (offline)")
     parser.add_argument("--output", type=Path, help="Write JSON result to a file")
     args = parser.parse_args(argv)
+    if args.mode == "models":
+        from .flagships import flagship_catalog
+        encoded = json.dumps(flagship_catalog(), ensure_ascii=False, indent=2) + "\n"
+        if args.output:
+            args.output.write_text(encoded)
+        else:
+            print(encoded, end="")
+        return 0
+    if args.scenario is None:
+        parser.error("scenario is required for check, search and pd-check")
     try:
         document = json.loads(args.scenario.read_text())
         result = evaluate_document(document, mode=args.mode, base=args.scenario.resolve().parent)

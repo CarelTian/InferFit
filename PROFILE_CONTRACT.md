@@ -1,4 +1,4 @@
-# InferFit 输入合同与扩展指南（0.5.0）
+# InferFit 输入合同与扩展指南（0.6.0）
 
 预检层接收统一的 `ModelProfile + Hardware + RuntimeProfile + Parallelism + Workload`。
 `check / search / optimize_pipeline / check_pd` 不依赖模型商品名或硬件 catalog 名称。
@@ -185,3 +185,9 @@ model = from_config({'model_type': 'vendor_model_type', ...})
 新张量排列如果可用现有 placements/roles 表达，只需数据或 config 转换器。
 但滑窗、跨层共享缓存、Engram、压缩状态、非线性缓存增长、新量化块格式，以及新设备平台/引擎后端，需要新增状态、量化或引擎 adapter 并做回归；本版不会用一个任意 bytes/token 常数将其伪装为已适配。
 因此 DeepSeek V4.1 和 ZW810 的已有拒绝边界仍保留。Pass 继续是数据及运行时假设下的容量判断，不是硬件启动验证。
+
+## Hybrid GDN family (0.6.0)
+
+`memory_family="gdn_moe"` requires explicit `layer_types` and the linear K/V head dimensions from config. Token KV and fixed recurrent state are distinct: `kv_per_token` reports only growing full-attention KV; `recurrent_state_bytes` reports fixed state per request. Stage intervals use `layer_start` plus `layers`; PP optimization sums each actual layer rather than multiplying an average layer. The inspected execution contract is `RuntimeProfile.sglang_flagship()` (0.5.23), with BF16 weights/KV, FP32 SSM, DP=1 and no state sharing. PD handoff is rejected until recurrent-state transport is modeled.
+
+GLM shared-index profiles use `indexer_types` to identify owned index tensors/cache; only SGLang 0.5.23, DP=1 and PP=1 are admitted currently. Model recognition in `flagship_catalog()` is distinct from analytical capacity support: DeepSeek V4.1 remains `recognized_only` and never generates a capacity pass.

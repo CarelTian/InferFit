@@ -57,3 +57,6 @@ htmlcov/
 ._*
 Thumbs.db
 Desktop.ini
+
+/research/
+/reports/

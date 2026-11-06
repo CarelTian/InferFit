@@ -52,7 +52,7 @@ def search(model: ModelProfile, *, hardware: Hardware | None = None,
             defaults = get_adapter(runtime or RuntimeProfile()).expert_choices(plan, runtime or RuntimeProfile())
         except ValueError:
             defaults = [1]
-        choices = eps if eps is not None else (defaults if model.architecture in {"mla_dsa", "gqa_moe"} else [1])
+        choices = eps if eps is not None else (defaults if model.architecture in {"mla_dsa", "gqa_moe", "gdn_moe"} else [1])
         for ep in choices:
             evaluate = optimize_pipeline if optimize_pp else check
             result = evaluate(model, hardware=hardware, workload=workload, runtime=runtime,

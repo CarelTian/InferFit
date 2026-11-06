@@ -1,0 +1,26 @@
+{
+  "hardware": {
+    "memory_bytes": 80000000000,
+    "gpus_per_node": 8,
+    "allow_cross_node_tp": true
+  },
+  "runtime": {
+    "engine": "sglang",
+    "version": "0.5.23"
+  },
+  "workload": {
+    "context_tokens": 8192,
+    "concurrency_per_dp": 1,
+    "max_batch_tokens": 2048
+  },
+  "kv_quantization": "bf16",
+  "model": "glm-5.3",
+  "weight_quantization": "fp8",
+  "parallelism": {
+    "tp": 16,
+    "dp": 1,
+    "ep": 16,
+    "pp": 1,
+    "num_gpus": 16
+  }
+}

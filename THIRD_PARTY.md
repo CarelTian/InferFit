@@ -25,3 +25,9 @@ deepseek-ai/DeepSeek-V4.1-Flash. Repository URLs, revisions, retrieval dates and
 parameter metadata are recorded in data/*-source.json. DeepSeek is an unsupported
 architecture fixture, not a supported estimator. Hardware reference URLs and the
 ZW810 illustrative-capacity policy are recorded in data/hardware-sources.json.
+
+## 0.6.0 flagship snapshots
+
+Frozen configuration snapshots for Qwen3.8-2.4T-A95B, GLM-5.3 and DeepSeek-V4.1-Flash-1017 are identified in `inferfit/data/flagships.json` by source URL, content SHA-256 and retrieval date. Model-specific license terms remain applicable; GLM-5.3 is not covered by the earlier GLM-5.1 MIT statement. See each original model repository for its license.
+
+SGLang v0.5.23 implementation references are Apache-2.0 upstream sources. Links are retained in README.md; InferFit does not distribute or import upstream implementation snapshots.

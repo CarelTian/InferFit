@@ -50,13 +50,17 @@ def optimize_pipeline(model: ModelProfile, *, parallelism: Parallelism,
     exemplar = initial.ranks[0]
     count = exemplar.layer_end - exemplar.layer_start
     mla_per_layer = exemplar.runtime_breakdown["mla_bf16_projection_copies"] // count
-    fixed_runtime = exemplar.runtime_peak_bytes - count * mla_per_layer
+    from .flagships import recurrent_state_bytes
+    recurrent = lambda start, count: recurrent_state_bytes(model, tp=p.tp, layer_start=start, layers=count) * (w.concurrency_per_dp + 1)
+    fixed_runtime = exemplar.runtime_peak_bytes - count * mla_per_layer - recurrent(exemplar.layer_start, count)
     fixed_load = exemplar.load_peak_bytes - exemplar.weight_bytes - count * mla_per_layer
-    k_per_layer = kv_per_token(model, tp=p.tp, layers=1,
-                              kv_quantization=initial.kv_quantization, runtime=r)["total"]
+    kv_prefix = [0]
+    state_prefix = [0]
+    for layer in range(n):
+        kv_prefix.append(kv_prefix[-1] + kv_per_token(model, tp=p.tp, layers=1,
+            layer_start=layer, kv_quantization=initial.kv_quantization, runtime=r)["total"])
+        state_prefix.append(state_prefix[-1] + recurrent(layer, 1))
     blocks = w.concurrency_per_dp * ceildiv(w.context_tokens, w.block_size) + 1
-    kv_cost = [blocks * math.ceil(k_per_layer * count * w.block_size * r.kv_pool_overhead_ratio)
-               for count in range(n + 1)]
 
     def stage_peak(stage: int, start: int, end: int) -> int:
         count = end - start
@@ -65,7 +69,9 @@ def optimize_pipeline(model: ModelProfile, *, parallelism: Parallelism,
             weight += first
         if stage == p.pp - 1:
             weight += last
-        return weight + count * mla_per_layer + max(fixed_load, fixed_runtime + kv_cost[count])
+        kv_cost = blocks * math.ceil((kv_prefix[end] - kv_prefix[start]) * w.block_size * r.kv_pool_overhead_ratio)
+        state_cost = state_prefix[end] - state_prefix[start]
+        return weight + count * mla_per_layer + max(fixed_load, fixed_runtime + kv_cost + state_cost)
 
     previous = [math.inf] * (n + 1)
     previous[0] = 0

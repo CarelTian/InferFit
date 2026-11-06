@@ -9,7 +9,7 @@ from typing import Any
 from .tensor_rules import ROLES, first_stage, tensor_role
 from .types import Hardware, ModelProfile, RuntimeProfile, TensorSpec
 
-FAMILIES = {'gqa','gqa_moe','mla_dsa'}
+FAMILIES = {'gqa','gqa_moe','gdn_moe','mla_dsa'}
 PLACEMENTS = {'replicated','column','row','vocab','kv_column','expert_column','expert_row'}
 
 def _read(value):
@@ -32,14 +32,23 @@ def validate_model_profile(model: ModelProfile) -> ModelProfile:
         raise ValueError('model_id and revision are required strings')
     c=model.config
     for key in ('num_hidden_layers','num_attention_heads','hidden_size','max_position_embeddings'):_pos(c.get(key),key)
-    if model.architecture in {'gqa','gqa_moe'}:
+    if model.architecture in {'gqa','gqa_moe','gdn_moe'}:
         for key in ('num_key_value_heads','head_dim'):_pos(c.get(key),key)
         if c['num_attention_heads']%c['num_key_value_heads']:raise ValueError('Q heads must divide evenly into KV groups')
+        if model.architecture == 'gdn_moe':
+            for key in ('linear_num_key_heads', 'linear_num_value_heads', 'linear_key_head_dim',
+                        'linear_value_head_dim', 'linear_conv_kernel_dim'):
+                _pos(c.get(key), key)
+            kinds = c.get('layer_types')
+            if not isinstance(kinds, list) or len(kinds) != c['num_hidden_layers'] or set(kinds) != {'linear_attention', 'full_attention'}:
+                raise ValueError('Hybrid profiles require explicit full/linear layer_types')
+            if c.get('mamba_ssm_dtype', 'float32') != 'float32':
+                raise ValueError('Only FP32 hybrid recurrent state is supported')
     else:
         for key in ('kv_lora_rank','qk_rope_head_dim','qk_nope_head_dim','v_head_dim','index_head_dim'):_pos(c.get(key),key)
     expert_count=None
-    if model.architecture in {'gqa_moe','mla_dsa'}:
-        expert_count=c.get('num_experts' if model.architecture=='gqa_moe' else 'n_routed_experts')
+    if model.architecture in {'gqa_moe','gdn_moe','mla_dsa'}:
+        expert_count=c.get('num_experts' if model.architecture in {'gqa_moe','gdn_moe'} else 'n_routed_experts')
         _pos(expert_count,'expert count')
     if not model.tensors:raise ValueError('Tensor inventory cannot be empty')
     seen=set();covered=set()

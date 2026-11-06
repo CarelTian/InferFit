@@ -4,13 +4,53 @@
 
 面向大模型推理的显存预检与并行部署规划工具：估算每卡显存、KV Cache 和剩余容量，校验引擎约束，并搜索满足条件的部署组合。
 
-独立、离线、无运行时第三方依赖的 Python 组件。0.5.0 支持两个固定运行时：**vLLM 0.19.0 / SGLang 0.5.10**。其他版本返回 unsupported，避免套用未经核实的规则。
+独立、离线、无运行时第三方依赖的 Python 组件。0.6.0 保留 **vLLM 0.19.0 / SGLang 0.5.10** 适配，并新增面向旗舰结构的 **SGLang 0.5.23** 有限支持。其他版本返回 unsupported，避免套用未经核实的规则。
 
 1. 检查指定模型、硬件、TP/DP/EP/PP 和负载的逐卡显存预算。
 2. 输出权重、KV、运行开销、峰值、余量、单 token KV 和缓存容量。
 3. 枚举可行组合，并用动态规划优化 PP 分层，输出引擎参数及分层环境变量。
 
 **`pass` 表示在显式假设下通过显存和静态能力检查。运行时开销尚未在 H800 实测，输出始终包含 `deployment_verified=false`。候选组合需要真实环境启动验证，不能当作吞吐/SLO 或部署成功保证。**
+
+## 0.6.0：最新旗舰快照与 SGLang 适配
+
+核实日期：2026-11-06。这里的“最新”是版本化快照，不会在运行时联网更新。
+
+| 模型 | 本版容量支持 | SGLang 合同 |
+|---|---|---|
+| Qwen/Qwen3.8-2.4T-A95B | GQA + Gated DeltaNet + MoE；BF16 权重、BF16 KV；TP/EP/PP 搜索 | 0.5.23，DP=1，TP 整除线性 K/V heads，关闭 radix/图捕获/MTP |
+| zai-org/GLM-5.3 | 共享索引 DSA；BF16/FP8-block 权重、BF16 KV；TP/EP 搜索 | 0.5.23，DP=1、PP=1 |
+| deepseek-ai/DeepSeek-V4.1-Flash-1017 | **只识别与诊断，完整容量适配尚未完成**；check/search 返回 unsupported，不能产生部署候选 | 原生 32×32 UE8M0 FP8、FP4 experts、Engram 和共享压缩缓存尚未纳入完整预算 |
+
+GLM-5.3 的 78 层只拥有 21 份 indexer，不能按 78 份索引缓存/权重计算。Qwen 的 92 层包含 23 层 full attention、69 层 GDN：完整逻辑 BF16 KV 为 **94,208 bytes/token**；GDN 的 BF16 convolution + FP32 recurrent state 为 **587,292,672 bytes/request**（TP=1）。后者按请求槽位计入 `runtime_breakdown.recurrent_state_pool`，不随 context 长度重复增长。当前池预算为 `(concurrency_per_dp + 1)` 个槽位，输出 `max_mamba_cache_size` 和状态 dtype 环境变量。
+
+```python
+from inferfit import load_model, RuntimeProfile, Hardware, Parallelism, check
+
+model = load_model("glm-5.3")
+result = check(
+    model,
+    runtime=RuntimeProfile.sglang_flagship(),
+    hardware=Hardware(memory_bytes=80_000_000_000, allow_cross_node_tp=True),
+    parallelism=Parallelism(tp=16, dp=1, ep=16, pp=1, num_gpus=16),
+    weight_quantization="fp8", kv_quantization="bf16",
+)
+print(result.status, result.summary.get("minimum_headroom_bytes"))
+```
+
+```bash
+inferfit models
+inferfit check examples/flagships/glm53-check.json
+inferfit search examples/flagships/qwen38-search.json
+# 此例预期 unsupported，退出码为 2：
+inferfit check examples/flagships/deepseek41-check.json
+```
+
+`flagship_catalog()` 返回每个模型的支持状态、数据摘要及未完成项。`load_model()` 加载冻结配置；旧模型仍通过原有 loader 加载。Qwen 的 revision 来自 HF commit；GLM/DeepSeek 因本次直接元数据访问受限，明确使用按日期和内容摘要标识的配置快照，不冒充 Hugging Face commit。BF16 表示目标驻留精度；FP8 checkpoint 不能仅修改 dtype 就变成 BF16 checkpoint，实际启动需匹配权重文件/转换流程。新结构的 PD 状态交接尚未验证，明确拒绝。
+
+上述权重为结构推导，未逐 tensor 对照新 checkpoint headers；运行预留仍是分析假设，**没有新模型的 GPU 启动验证**。不能将这一支持矩阵解读为三家最新模型均已完成适配。
+
+官方配置：[Qwen3.8](https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B/blob/main/config.json)、[GLM-5.3](https://huggingface.co/zai-org/GLM-5.3/blob/main/config.json)、[DeepSeek V4.1](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017/blob/main/config.json)。SGLang 依据：[Qwen 实现](https://github.com/sgl-project/sglang/blob/v0.5.23/python/sglang/srt/models/qwen3_5.py)、[线性状态形状](https://github.com/sgl-project/sglang/blob/v0.5.23/python/sglang/srt/configs/mamba_utils.py)、[DSA indexer 构建](https://github.com/sgl-project/sglang/blob/v0.5.23/python/sglang/srt/models/deepseek_v2.py)、[DeepSeek 共享结构](https://github.com/sgl-project/sglang/blob/v0.5.23/python/sglang/srt/models/deepseek_v4.py)。
 
 ## 0.4.0 数据接口
 
@@ -78,7 +118,7 @@ P/D 两池分别保存完整模型副本、分别检查逐卡预算，不能把�
 Python >=3.11；本次测试环境为 Python 3.15.2。wheel 安装不需要网络或 PyTorch。
 
 ```bash
-python3 -m pip install dist/inferfit-0.5.0-py3-none-any.whl
+python3 -m pip install dist/inferfit-0.6.0-py3-none-any.whl
 inferfit check examples/h800-glm51-check.json
 inferfit search examples/h800-glm51-search.json --output search-result.json
 ```
@@ -336,9 +376,9 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 python3 -m build
 ```
 
-78 项测试覆盖官方 BF16/FP8 元数据对照、MLA/DSA 单 token 大小、TP KV 复制、DP/EP、sequence-parallel shared experts、PP 逐卡不均衡及最优分层、缓存块/null block、容量边界、加载峰值、非法组合、搜索和 CLI，以及 SGLang 的 native 参数、部分 EP、DP attention、等额节点放置和真实池形状。
+86 项测试（包含新增旗舰结构用例）覆盖官方 BF16/FP8 元数据对照、MLA/DSA 单 token 大小、TP KV 复制、DP/EP、sequence-parallel shared experts、PP 逐卡不均衡及最优分层、缓存块/null block、容量边界、加载峰值、非法组合、搜索和 CLI，以及 SGLang 的 native 参数、部分 EP、DP attention、等额节点放置和真实池形状。
 
-源码目录中的 `research/` 保留本次官方元数据和研究依据；完整权重索引与上游源码不进入 wheel/sdist。包内附带的压缩元数据足够离线运行及测试。
+模型配置、精简张量元数据和来源记录位于 `src/inferfit/data/`，足够离线运行及测试。完整权重索引、上游源码副本和本地研究报告不随仓库或发行包分发。
 
 ## 主要依据
 

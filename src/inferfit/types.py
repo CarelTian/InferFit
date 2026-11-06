@@ -74,6 +74,13 @@ class RuntimeProfile:
         values.update(overrides)
         return cls(**values)
 
+    @classmethod
+    def sglang_flagship(cls, **overrides: Any) -> RuntimeProfile:
+        """Inspected 0.5.23 flagship contract; analytical reserves remain assumed."""
+        values = dict(name="sglang-0.5.23-flagship-eager-assumed", version="0.5.23")
+        values.update(overrides)
+        return cls.sglang(**values)
+
 
 @dataclass(frozen=True)
 class TensorSpec:

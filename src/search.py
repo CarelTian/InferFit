@@ -1,13 +1,9 @@
-from pathlib import Path
-
 from inferfit import (
     GiB, Hardware, RuntimeProfile, Workload,
-    load_model_profile, search,
+    load_glm51, search,
 )
 
-model = load_model_profile(
-    Path(__file__).resolve().parents[1] / "reports/glm5-fp8-h800/model.profile.json"
-)
+model = load_glm51()
 
 result = search(
     model,
