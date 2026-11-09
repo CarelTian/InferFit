@@ -9,7 +9,7 @@ from typing import Any
 from .tensor_rules import ROLES, first_stage, tensor_role
 from .types import Hardware, ModelProfile, RuntimeProfile, TensorSpec
 
-FAMILIES = {'gqa','gqa_moe','gdn_moe','gdn_qsa_moe','mla_dsa'}
+FAMILIES = {'gqa','gqa_moe','gdn_moe','gdn_qsa_moe','mla_dsa','dsv4'}
 PLACEMENTS = {'replicated','column','row','vocab','kv_column','expert_column','expert_row'}
 
 def _read(value):
@@ -52,10 +52,18 @@ def validate_model_profile(model: ModelProfile) -> ModelProfile:
                     raise ValueError('QSA compressed bytes must divide evenly per token')
                 if not isinstance(c.get('ple_layer_ids'), list) or any(type(i) is not int or not 1 <= i <= c['num_hidden_layers'] for i in c['ple_layer_ids']):
                     raise ValueError('PLE layer IDs must be one-based model layer indices')
+    elif model.architecture == 'dsv4':
+        for key in ('head_dim','qk_rope_head_dim','qk_nope_head_dim','index_head_dim','sliding_window','hc_mult','o_groups'):
+            _pos(c.get(key),key)
+        ratios = c.get('compress_ratios')
+        if not isinstance(ratios,list) or len(ratios)!=c['num_hidden_layers'] or any(type(x) is not int or x not in {0,4,128} for x in ratios):
+            raise ValueError('Original V4 requires one compression ratio 0/4/128 per base layer')
+        if (c['head_dim'],c['qk_nope_head_dim'],c['qk_rope_head_dim'],c['index_head_dim'],c['sliding_window'])!=(512,448,64,128,128):
+            raise ValueError('Unsupported original V4 geometry')
     else:
         for key in ('kv_lora_rank','qk_rope_head_dim','qk_nope_head_dim','v_head_dim','index_head_dim'):_pos(c.get(key),key)
     expert_count=None
-    if model.architecture in {'gqa_moe','gdn_moe','gdn_qsa_moe','mla_dsa'}:
+    if model.architecture in {'gqa_moe','gdn_moe','gdn_qsa_moe','mla_dsa','dsv4'}:
         expert_count=c.get('num_experts' if model.architecture in {'gqa_moe','gdn_moe','gdn_qsa_moe'} else 'n_routed_experts')
         _pos(expert_count,'expert count')
     if not model.tensors:raise ValueError('Tensor inventory cannot be empty')
@@ -68,7 +76,10 @@ def validate_model_profile(model: ModelProfile) -> ModelProfile:
         if t.layer is not None and t.pp_owner is not None:raise ValueError("Layer tensors cannot have an endpoint owner")
         if not t.shape:raise ValueError('Tensor shape is required')
         for dim in t.shape:_pos(dim,'tensor dimension')
-        if t.dtype not in {'BF16','F16','F32','I64'}:raise ValueError('Tensor source dtype must be BF16/F16/F32/I64')
+        from .weights import DTYPE_BYTES
+        if t.dtype not in DTYPE_BYTES:raise ValueError('Unsupported tensor source dtype')
+        if t.dtype in {'F8_E4M3','F8_E8M0','I8','U8'} and (not model.provenance.get('native_quantization') or t.quantizable):
+            raise ValueError('Native packed tensors require native_quantization provenance and cannot be quantized again')
         if t.placement not in PLACEMENTS:raise ValueError('Unknown tensor placement')
         _pos(t.multiplicity,'multiplicity')
         if type(t.quantizable) is not bool:raise ValueError('quantizable must be boolean')

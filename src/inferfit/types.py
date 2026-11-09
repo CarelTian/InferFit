@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from typing import Any
+from .engine_versions import SGLANG_CURRENT_VERSION, SGLANG_LEGACY_VERSION
 
 GiB = 1024**3
 
@@ -68,16 +69,30 @@ class RuntimeProfile:
 
     @classmethod
     def sglang(cls, **overrides: Any) -> RuntimeProfile:
-        """Pinned eager SGLang profile; reserves remain explicit assumptions."""
+        """Compatibility factory for the legacy contract; prefer an explicit factory."""
+        if overrides.get("version") == SGLANG_CURRENT_VERSION:
+            return cls.sglang_current(**overrides)
+        return cls.sglang_legacy(**overrides)
+
+    @classmethod
+    def sglang_legacy(cls, **overrides: Any) -> RuntimeProfile:
+        """Reproduce the inspected 0.5.10 contract for existing scenarios."""
         values = dict(name="sglang-0.5.10-hopper-eager-assumed", engine="sglang",
-                      version="0.5.10", activation_fixed_bytes=2 * GiB)
+                      version=SGLANG_LEGACY_VERSION, activation_fixed_bytes=2 * GiB)
         values.update(overrides)
         return cls(**values)
 
     @classmethod
+    def sglang_current(cls, **overrides: Any) -> RuntimeProfile:
+        """Current inspected model contract (0.5.23), not an unpinned latest alias."""
+        values = dict(name="sglang-0.5.23-current-eager-assumed", version=SGLANG_CURRENT_VERSION)
+        values.update(overrides)
+        return cls.sglang_legacy(**values)
+
+    @classmethod
     def sglang_flagship(cls, **overrides: Any) -> RuntimeProfile:
         """Inspected 0.5.23 flagship contract; analytical reserves remain assumed."""
-        values = dict(name="sglang-0.5.23-flagship-eager-assumed", version="0.5.23")
+        values = dict(name="sglang-0.5.23-flagship-eager-assumed", version=SGLANG_CURRENT_VERSION)
         values.update(overrides)
         return cls.sglang(**values)
 
@@ -132,6 +147,7 @@ class RankMemory:
     physical_slack_at_peak_bytes: int
     kv_capacity_tokens: int
     memory_pass: bool
+    kv_allocation_breakdown: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass

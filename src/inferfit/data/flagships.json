@@ -53,6 +53,56 @@
     "support": "analytical",
     "sglang_version": "0.5.23",
     "scope": "BF16 text-only workload; GPU-resident N-gram; conservative replicated vision-weight budget; DP=1 and PP=1",
-    "blockers": []
+    "blockers": [],
+    "metadata_file": "qwen38-flash-next-metadata.json",
+    "metadata_sha256": "7b3c82c524aa1d88c24b0783556e5dae8e6c90193b318b1a2c72cd9dfb7c70fd"
+  },
+  {
+    "alias": "qwen3.8-flash-next-fp8",
+    "id": "Qwen/Qwen3.8-Flash-Next-FP8",
+    "config_file": "qwen38-flash-next-fp8-config.json",
+    "config_sha256": "c22eb0a053eed62e18f0184d3ca62d3798f208c3e00b9feee939fc3dbacdc8ca",
+    "revision": "7fb48d708ca6cd8eeed8f4db0433be18af96984f",
+    "revision_kind": "hf_commit",
+    "source_url": "https://huggingface.co/Qwen/Qwen3.8-Flash-Next-FP8/raw/7fb48d708ca6cd8eeed8f4db0433be18af96984f/config.json",
+    "checked_at": "2026-11-09",
+    "support": "analytical",
+    "sglang_version": "0.5.23",
+    "blockers": [],
+    "metadata_file": "qwen38-flash-next-fp8-metadata.json",
+    "metadata_sha256": "56f62d7cb0d09072f2447f317871611d2d39c9c3eac1ef3ecb9a7f05f1a2d96d",
+    "scope": "SGLang 0.5.23 Hopper SM90; DP=1; EP=TP; eager base model; no offload/MTP/PD; PP=1; BF16 KV; text-only; replicated vision upper budget"
+  },
+  {
+    "alias": "deepseek-v4-flash",
+    "id": "deepseek-ai/DeepSeek-V4-Flash",
+    "config_file": "deepseek-v4-flash-config.json",
+    "config_sha256": "b628e63398a645abc711d92207f8737dd8140f7a4ef1e0a5b3616019e0ddd818",
+    "revision": "60d8d70770c6776ff598c94bb586a859a38244f1",
+    "revision_kind": "hf_commit",
+    "source_url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/raw/60d8d70770c6776ff598c94bb586a859a38244f1/config.json",
+    "checked_at": "2026-11-09",
+    "support": "analytical",
+    "sglang_version": "0.5.23",
+    "blockers": [],
+    "metadata_file": "deepseek-v4-flash-metadata.json",
+    "metadata_sha256": "62ebb1f0bdcb4e2ed44019a83344e2b35439ca53e972684453910ac8137f5c81",
+    "scope": "SGLang 0.5.23 Hopper SM90; DP=1; EP=TP; eager base model; no offload/MTP/PD; PP supported; native mixed FP8/FP4 weights; FP8 V4 paged cache, page=256, SWA/full=1, offline FP32 compressor states"
+  },
+  {
+    "alias": "deepseek-v4-pro",
+    "id": "deepseek-ai/DeepSeek-V4-Pro",
+    "config_file": "deepseek-v4-pro-config.json",
+    "config_sha256": "5fe4568daee51c208cb8a79538eaeda090ae011ade1dee2c386aa95f569c810e",
+    "revision": "b5968e9190ef611bbf34a7229255be88a0e937c1",
+    "revision_kind": "hf_commit",
+    "source_url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/raw/b5968e9190ef611bbf34a7229255be88a0e937c1/config.json",
+    "checked_at": "2026-11-09",
+    "support": "analytical",
+    "sglang_version": "0.5.23",
+    "blockers": [],
+    "metadata_file": "deepseek-v4-pro-metadata.json",
+    "metadata_sha256": "d068d49d813c9c1d3a2d581fe2b35728fc27c26183cf1fdb31eca41394885dba",
+    "scope": "SGLang 0.5.23 Hopper SM90; DP=1; EP=TP; eager base model; no offload/MTP/PD; PP supported; native mixed FP8/FP4 weights; FP8 V4 paged cache, page=256, SWA/full=1, offline FP32 compressor states"
   }
 ]

@@ -22,8 +22,8 @@ References:
 
 Additional pinned configuration metadata: Qwen/Qwen3-235B-A22B and
 deepseek-ai/DeepSeek-V4.1-Flash. Repository URLs, revisions, retrieval dates and
-parameter metadata are recorded in data/*-source.json. DeepSeek is an unsupported
-architecture fixture, not a supported estimator. Hardware reference URLs and the
+parameter metadata are recorded in data/*-source.json. This V4.1 fixture is an unsupported
+architecture, not a supported estimator. Hardware reference URLs and the
 ZW810 illustrative-capacity policy are recorded in data/hardware-sources.json.
 
 ## 0.6.0 flagship snapshots
@@ -35,3 +35,21 @@ SGLang v0.5.23 implementation references are Apache-2.0 upstream sources. Links 
 ## Qwen3.8-Flash-Next (0.7.0)
 
 Configuration and tensor header metadata originate from `Qwen/Qwen3.8-Flash-Next`, revision `812d96e10a0dd82b69d749e68693698cf6c36daa`, under the model repository's Qwen Community License 1.0. See https://huggingface.co/Qwen/Qwen3.8-Flash-Next/blob/812d96e10a0dd82b69d749e68693698cf6c36daa/LICENSE for the original terms. No tensor payloads are distributed. SGLang 0.5.23 implementation references remain Apache-2.0; their URLs and source digests are retained in `data/qwen38-flash-next-metadata.json`. Upstream implementation code is not distributed or imported.
+
+## Native quantized models (0.8.0)
+
+New configuration and tensor-header metadata are pinned in `data/flagships.json`:
+Qwen/Qwen3.8-Flash-Next-FP8, deepseek-ai/DeepSeek-V4-Flash and
+DeepSeek-V4-Pro. Original V4 Flash/Pro are supported analytical profiles;
+V4.1 remains a separate unsupported fixture. No tensor payloads are distributed.
+
+The original model license terms are available in the pinned repositories:
+
+- https://huggingface.co/Qwen/Qwen3.8-Flash-Next-FP8/tree/7fb48d708ca6cd8eeed8f4db0433be18af96984f
+- https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/tree/60d8d70770c6776ff598c94bb586a859a38244f1
+- https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/tree/b5968e9190ef611bbf34a7229255be88a0e937c1
+
+SGLang v0.5.23 formulas were independently modeled from its Apache-2.0
+implementation. Source URLs and SHA-256 digests, checkpoint header digests,
+encoded dtypes, and exact checkpoint byte totals are retained in the new
+`*-metadata.json` files. Upstream source code is not vendored.

@@ -1,4 +1,4 @@
-# InferFit 输入合同与扩展指南（0.7.0）
+# InferFit 输入合同与扩展指南（0.8.0）
 
 预检层接收统一的 `ModelProfile + Hardware + RuntimeProfile + Parallelism + Workload`。
 `check / search / optimize_pipeline / check_pd` 不依赖模型商品名或硬件 catalog 名称。
@@ -75,7 +75,7 @@ MoE 另需 `num_experts`；MLA/DSA 另需 `kv_lora_rank / qk_rope_head_dim / qk_
 ```
 
 - shape 表示**单份张量**；multiplicity 表示相同 shape 的重复份数，例如 128 个常驻专家。
-- dtype 为源权重 BF16/F16/F32/I64。`quantizable=true` 表示选择 fp8_block 时允许转换，不表示当前 header 已是 FP8。
+- dtype 为源权重 BF16/F16/F32/I64/I32/I8/U8/F8_E4M3/F8_E8M0。原生打包/FP8 张量必须带 native_quantization provenance，且 quantizable=false，scale 独立列出。`quantizable=true` 表示选择 fp8_block 时允许转换，不表示当前 header 已是 FP8。
 - placement：`replicated / column / row / vocab / kv_column / expert_column / expert_row`。column/row 是输出/输入维分片；kv_column 会处理 KV head 复制；专家维与剩余 expert TP 由引擎 adapter 决定。
 - role：`embedding / output / attention / dense_ffn / shared_expert / routed_expert / norm / index_norm / index / generic`。外部清单必须显式填写，不能使用 auto；核心不再依赖张量名称子串判断角色。
 - 普通层张量写 layer 编号，pp_owner=null；全局张量写 layer=null，并明确 pp_owner=`first` 或 `last`。权重重复、复制或 tying 关系由调用方如实描述。
@@ -126,7 +126,7 @@ Loader 校验层范围、层覆盖、重复名称、正整数 shape、dtype、�
 }
 ```
 
-省略的字段使用对应工厂默认值。支持固定 vLLM 0.19.0 / SGLang 0.5.10；JSON 不能扩充或绕过引擎能力规则。
+省略的字段使用对应工厂默认值。支持固定 vLLM 0.19.0 / SGLang 0.5.10，以及限定模型与后端的 SGLang 0.5.23；JSON 不能扩充或绕过引擎能力规则。
 当前仅支持 assumed profile，尚未提供 measured profile 采集与校准 adapter。
 相同模型家族只说明内存公式可复用，仍需确认实际引擎已实现相应模型和 kernels。
 
@@ -156,6 +156,8 @@ CLI 场景通过相对于场景文件的路径引用，不静默下载、合并�
   "weight_quantization": "bf16"
 }
 ```
+
+新模型推荐 `RuntimeProfile.sglang_current()`（固定 0.5.23）；旧场景可显式使用 `sglang_legacy()`。
 
 同一引用方式适用于 search，以及 pd-check 的 model 和两个池内的 hardware/runtime。
 `profile_path` 与内联字段互斥，避免隐藏覆盖。Python API 的 PDPool 直接传加载后的对象。
@@ -197,3 +199,23 @@ GLM shared-index profiles use `indexer_types` to identify owned index tensors/ca
 `gdn_qsa_moe` extends the hybrid contract with growing compressed QSA index keys and fixed PLE/QSA side-state pools. It requires the QSA dimensions/compression ratio, HC width and PLE layer IDs. PLE layer IDs in the source config are one-based. The built-in config converter only accepts the frozen complete `qwen4_exp` text/vision snapshot; arbitrary structural variants require new checkpoint metadata. I64 source buffers are retained as eight-byte integers.
 
 The checkpoint audit inventory includes MTP so its aggregate can be checked against the original index. The generated runtime profile excludes MTP, consolidates on-disk N-gram shards, and adds SGLang-regenerated buffers. Thus checkpoint bytes, logical base inventory bytes and per-rank resident bytes are explicitly different quantities. Vision parameters use a replicated upper budget. PP>1 and PD are rejected in this release; the existing PP optimizer remains unchanged for supported older families.
+
+## 原生量化与 V4 状态合同（0.8.0）
+
+`weight_quantization="native"` 仅适用于已经逐 header 核对的原生量化清单。
+Qwen Flash-Next FP8 和原始 V4 Flash/Pro 的 scale、BF16 exclusions、FP4 packed
+shapes 均作为独立张量保存；选择 `fp8` 别名也保留这些混合 dtype，不会再次量化。
+对原生快照请求 BF16 转换会拒绝，不能把它当作已经存在的 BF16 checkpoint。
+
+`memory_family="dsv4"` 的基础配置必须为 512-dim shared latent、64-dim RoPE、
+128-dim index、window128，并明确每个基础层的 compression ratio 0/4/128。
+MTP ratio 不属于基础层。当前引擎合同仅允许 Hopper、SGLang 0.5.23、DP1、EP=TP、
+page256、FP8 V4 paged layout、SWA/full=1、离线 FP32 compressor states。
+
+`kv_per_token()` 返回不含保留页和 compressor ring 的向上取整分页摊销速率。
+`RankMemory.kv_allocation_breakdown` 才是各 KV 池的实际预算；状态池单列于
+`runtime_breakdown`。不能将一个摊销速率乘 token 数作为总需求。
+V4 的 `kv_capacity_tokens` 在固定请求数和运行预留下反解，且不超过模型最大 context ×
+请求数；它也不是当前显式 max_total_tokens 配置额外预分配的 token 数。
+
+新 family 的开发与源码模块划分见 [ARCHITECTURE.md](ARCHITECTURE.md)。

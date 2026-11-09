@@ -1,0 +1,50 @@
+{
+  "model": "deepseek-v4-flash",
+  "hardware": {
+    "memory_bytes": 80000000000,
+    "gpus_per_node": 8
+  },
+  "runtime": {
+    "engine": "sglang",
+    "version": "0.5.23"
+  },
+  "workload": {
+    "context_tokens": 8192,
+    "concurrency_per_dp": 1,
+    "max_batch_tokens": 2048,
+    "block_size": 256
+  },
+  "weight_quantization": "native",
+  "kv_quantization": "fp8",
+  "search": {
+    "tp_values": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "dp_values": [
+      1
+    ],
+    "pp_values": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+    ],
+    "max_gpus": 32,
+    "limit": 12
+  }
+}

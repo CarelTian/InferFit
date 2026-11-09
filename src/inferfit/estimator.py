@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import math
 from dataclasses import fields
-from functools import lru_cache
 from typing import Any
 
-from .tensor_rules import first_stage, tensor_role
-from .adapters import get_adapter
+from .tensor_rules import first_stage
+from .engines import get_adapter
+from .weights import storage_bytes, validate_weight_format
 from .types import (CheckResult, Hardware, ModelProfile, Parallelism, RankMemory,
                     RuntimeProfile, TensorSpec, Workload)
 
@@ -17,23 +17,11 @@ WEIGHT_ALIASES = {"fp8": "fp8_block", "bfloat16": "bf16", "float16": "fp16"}
 def ceildiv(a: int, b: int) -> int:
     return (a + b - 1) // b
 
-
-@lru_cache(maxsize=32768)
-def storage_bytes(shape: tuple[int, ...], dtype: str, quantized: bool) -> int:
-    """FP8 W8A8: one byte/element plus FP32 scales for 128x128 blocks."""
-    if quantized:
-        if len(shape) != 2:
-            raise ValueError("Block quantization requires a matrix")
-        return math.prod(shape) + 4 * ceildiv(shape[0], 128) * ceildiv(shape[1], 128)
-    return math.prod(shape) * {"BF16": 2, "F16": 2, "F32": 4, "I64": 8}[dtype]
-
-
 def logical_weight_bytes(model: ModelProfile, weight_quantization: str = "bf16") -> int:
     """Unpartitioned inventory size, including scales; excludes runtime transforms."""
     fmt = WEIGHT_ALIASES.get(weight_quantization, weight_quantization)
-    if model.architecture == "gdn_qsa_moe" and fmt != "bf16":
-        raise ValueError("Flash-Next inventory covers BF16 weights only")
-    if fmt not in {"bf16", "fp16", "fp8_block"}:
+    validate_weight_format(model, fmt)
+    if fmt not in {"bf16", "fp16", "fp8_block", "native"}:
         raise ValueError(f"Unsupported weight format: {fmt}")
     return sum(storage_bytes(t.shape, t.dtype, fmt == "fp8_block" and t.quantizable)
                * t.multiplicity for t in model.tensors)
@@ -69,7 +57,7 @@ def _tensor_local(t: TensorSpec, model: ModelProfile, p: Parallelism,
         if shape[axis] % width:
             raise ValueError(f"{t.name}: sharded dimension is not divisible by tensor width {width}")
         shape[axis] //= width
-        if fmt == "fp8_block" and t.quantizable and shape[axis] % 128:
+        if ((fmt == "fp8_block" and t.quantizable) or t.dtype == "F8_E4M3") and shape[axis] % 128:
             raise ValueError(f"{t.name}: FP8 shard must align to 128-element weight blocks")
     elif kind != "replicated":
         raise ValueError(f"Unknown tensor placement: {kind}")
@@ -77,56 +65,15 @@ def _tensor_local(t: TensorSpec, model: ModelProfile, p: Parallelism,
 
 
 def kv_per_token(model: ModelProfile, *, tp: int = 1, layers: int | None = None,
-                 kv_quantization: str = "bf16",
-                 runtime: RuntimeProfile | None = None, layer_start: int = 0) -> dict[str, int]:
-    """Physical payload bytes/token on one GPU, before block/pool rounding."""
-    if type(tp) is not int or tp <= 0:
-        raise ValueError("tp must be positive")
-    c = model.config
-    layers = c["num_hidden_layers"] - layer_start if layers is None else layers
-    if type(layers) is not int or layers <= 0:
-        raise ValueError("layers must be positive")
-    if type(layer_start) is not int or layer_start < 0 or layer_start + layers > c["num_hidden_layers"]:
-        raise ValueError("Invalid layer interval")
-    adapter = get_adapter(runtime or RuntimeProfile())
-    if model.architecture in {"gdn_moe", "gdn_qsa_moe"} or "shared" in c.get("indexer_types", []):
-        if (adapter.engine, adapter.version) != ("sglang", "0.5.23"):
-            raise ValueError("Hybrid GDN / shared-index KV requires SGLang 0.5.23")
-    dtype = adapter.normalize_kv(kv_quantization, model)
-    if model.architecture == "mla_dsa":
-        if dtype == "bf16":
-            latent, rope, scales = c["kv_lora_rank"] * 2, c["qk_rope_head_dim"] * 2, 0
-        elif dtype == ("fp8_e4m3" if adapter.engine == "sglang" else "fp8_ds_mla"):
-            if c["kv_lora_rank"] != 512 or c["qk_rope_head_dim"] != 64:
-                raise ValueError("fp8_ds_mla backend requires latent=512 and RoPE=64")
-            latent, rope, scales = 512, 128, 16
-        else:
-            raise ValueError(f"{adapter.engine} MLA DSA supports bf16 or its engine-specific FP8 format (fp8 alias)")
-        if c["index_head_dim"] != 128:
-            raise ValueError("Pinned DSA backend requires index_head_dim=128")
-        # Shared index K, not index_n_heads independent cache vectors.
-        index_layers = c.get("indexer_types", ["full"] * c["num_hidden_layers"])[layer_start:layer_start + layers].count("full")
-        parts = {"latent": latent * layers, "rope": rope * layers,
-                 "mla_scales": scales * layers,
-                 "index_keys": 128 * index_layers, "index_scales": 4 * index_layers}
-    elif model.architecture in {"gqa", "gqa_moe", "gdn_moe", "gdn_qsa_moe"}:
-        if dtype not in {"bf16", "fp16", "fp8" if adapter.engine == "vllm" else "fp8_e4m3"}:
-            raise ValueError("GQA supports bf16, fp16 or fp8 KV")
-        kv_heads = c["num_key_value_heads"]
-        if (kv_heads >= tp and kv_heads % tp) or (kv_heads < tp and tp % kv_heads):
-            raise ValueError("KV heads cannot be evenly sharded/replicated by this TP")
-        heads = max(1, kv_heads // tp)
-        cached_layers = c["layer_types"][layer_start:layer_start + layers].count("full_attention") if model.architecture in {"gdn_moe", "gdn_qsa_moe"} else layers
-        size = cached_layers * heads * c["head_dim"] * (1 if dtype in {"fp8", "fp8_e4m3"} else 2)
-        parts = {"keys": size, "values": size}
-        if model.architecture == "gdn_qsa_moe":
-            if dtype != "bf16":
-                raise ValueError("Flash-Next cache contract covers BF16 only")
-            parts["qsa_compressed_keys"] = (cached_layers * c["indexer_kv_heads"] *
-                c["indexer_head_dim"] * 2 // c["indexer_compress_ratio"])
-    else:
-        raise ValueError(f"Unsupported state architecture: {model.architecture}")
-    return {**parts, "total": sum(parts.values())}
+                 kv_quantization: str = "bf16", runtime: RuntimeProfile | None = None,
+                 layer_start: int = 0) -> dict[str, int]:
+    """Per-rank token geometry; paged V4 rates are rounded-up amortized bytes.
+
+    Exact demand (including pages and fixed states) is reported by check().
+    """
+    from .states import get_state_model
+    return get_state_model(model).per_token(model, tp=tp, layers=layers,
+        kv_quantization=kv_quantization, runtime=runtime, layer_start=layer_start)
 
 
 def _validate(model: ModelProfile, h: Hardware, p: Parallelism, w: Workload,
@@ -175,9 +122,9 @@ def _validate(model: ModelProfile, h: Hardware, p: Parallelism, w: Workload,
         return invalid, unsupported
     if p.num_gpus != p.tp * p.dp * p.pp:
         invalid.append("num_gpus must equal TP * DP * PP; EP reuses TP*DP ranks")
-    if model.architecture in {"gdn_moe", "gdn_qsa_moe"} or "shared" in model.config.get("indexer_types", []):
+    if model.architecture in {"gdn_moe", "gdn_qsa_moe", "dsv4"} or "shared" in model.config.get("indexer_types", []):
         if (r.engine, r.version) != ("sglang", "0.5.23"):
-            unsupported.append("Hybrid GDN / shared-index models require the inspected SGLang 0.5.23 adapter")
+            unsupported.append("Hybrid GDN / shared-index / V4 models require the inspected SGLang 0.5.23 adapter")
     if p.pp > model.config["num_hidden_layers"]:
         invalid.append("PP cannot exceed the number of model layers")
     if model.config["num_attention_heads"] % p.tp:
@@ -208,14 +155,21 @@ def _validate(model: ModelProfile, h: Hardware, p: Parallelism, w: Workload,
     elif model.architecture in {"gqa", "gqa_moe", "gdn_moe", "gdn_qsa_moe"}:
         if model.architecture == "gqa" and p.ep != 1:
             invalid.append("Dense GQA models require EP=1")
+    elif model.architecture == "dsv4":
+        if model.config["n_routed_experts"] % p.ep:
+            invalid.append("n_routed_experts must be divisible by EP")
     else:
         unsupported.append("Unknown model architecture")
-    if fmt not in {"bf16", "fp16", "fp8_block"}:
-        unsupported.append("Supported weight formats: bf16, fp16, fp8_block")
+    if fmt not in {"bf16", "fp16", "fp8_block", "native"}:
+        unsupported.append("Supported weight formats: bf16, fp16, fp8_block, native (pinned native checkpoints only)")
     if fmt == "fp8_block" and h.compute_capability < 89:
         unsupported.append("FP8 runtime requires compatible GPU kernels")
     try:
-        unsupported.extend(get_adapter(r).validate(model, h, p, w, r, fmt, kv))
+        validate_weight_format(model, fmt)
+        engine = get_adapter(r)
+        if model.provenance.get("native_quantization") and not engine.supports_native_layout(model):
+            unsupported.append("Native weight layout has no inspected contract for this engine/version/family")
+        unsupported.extend(engine.validate(model, h, p, w, r, fmt, kv))
     except ValueError as error:
         unsupported.append(str(error))
     if r.provenance != "assumed":
@@ -290,14 +244,15 @@ def check(model: ModelProfile, *, hardware: Hardware | None = None,
     budget = min(int(h.memory_bytes * h.utilization),
                  h.memory_bytes - h.external_used_bytes_per_gpu) - h.safety_margin_bytes
     tokens = w.concurrency_per_dp * ceildiv(w.context_tokens, w.block_size) * w.block_size
-    # Both pinned engines allocate an extra null/dummy cache page.
-    allocated_tokens = tokens + w.block_size
+    from .states import get_state_model
+    state_model = get_state_model(model)
+    tokens = state_model.token_cap(tokens)
+    load_workspace = adapter.load_workspace_bytes(model, p, r)
     c = model.config
     for pp_rank, count in enumerate(counts):
-        parts = kv_per_token(model, tp=p.tp, layers=count, kv_quantization=kv, runtime=r, layer_start=bounds[pp_rank])
-        k = parts["total"]
-        block_bytes = math.ceil(k * w.block_size * r.kv_pool_overhead_ratio)
-        kv_required = (allocated_tokens // w.block_size) * block_bytes
+        allocation = state_model.allocate(model, p, w, r, kv, bounds[pp_rank], count)
+        parts, allocated_tokens = allocation.kv_parts, allocation.allocated_tokens
+        k, kv_required = parts["total"], allocation.cache_bytes
         mla_copies = 0
         index_workspace = 0
         if model.architecture == "mla_dsa":
@@ -308,11 +263,8 @@ def check(model: ModelProfile, *, hardware: Hardware | None = None,
                               * (c["qk_nope_head_dim"] + c["v_head_dim"]) * 2)
         # Batch metadata and block tables have per-rank resident allocations.
         metadata = adapter.metadata_bytes(w)
-        activation = r.activation_fixed_bytes + w.max_batch_tokens * adapter.batch_multiplier(p, r) * c["hidden_size"] * 2 * r.activation_copies
-        if model.architecture == "gdn_qsa_moe":
-            activation += w.max_batch_tokens * c["hidden_size"] * (c["hc_count"] - 1) * 2 * r.activation_copies
-        from .flagships import recurrent_state_bytes
-        recurrent = recurrent_state_bytes(model, tp=p.tp, layer_start=bounds[pp_rank], layers=count) * (w.concurrency_per_dp + 1)
+        activation = (r.activation_fixed_bytes + w.max_batch_tokens * adapter.batch_multiplier(p, r)
+                      * state_model.activation_width(model) * 2 * r.activation_copies)
         runtime_parts = {
             "cuda_context": r.cuda_context_bytes,
             "communication": r.communication_bytes,
@@ -324,20 +276,17 @@ def check(model: ModelProfile, *, hardware: Hardware | None = None,
             "block_table_metadata": metadata,
             "extra": r.extra_bytes,
         }
-        if model.architecture in {"gdn_moe", "gdn_qsa_moe"}:
-            runtime_parts["recurrent_state_pool"] = recurrent
-        if model.architecture == "gdn_qsa_moe":
-            from .qwen_flash_next import flash_next_fixed_state
-            runtime_parts.update({key: value * (w.concurrency_per_dp + 1) for key, value in
-                flash_next_fixed_state(model, layer_start=bounds[pp_rank], layers=count).items()})
-            runtime_parts["qsa_prefill_workspace_envelope"] = (128 * 1024**2 +
-                w.max_batch_tokens * (c["indexer_budget"] + c["indexer_compress_ratio"] - 1) * 4)
+        runtime_parts.update(allocation.runtime_parts)
+        resident_buffers = adapter.resident_buffers(model, p, w, r)
+        runtime_parts.update(resident_buffers)
         overhead = sum(runtime_parts.values())
         weight = local_weights[pp_rank]
-        load_peak = weight + r.cuda_context_bytes + r.communication_bytes + r.allocator_bytes + mla_copies + r.load_workspace_bytes + r.extra_bytes
+        load_peak = (weight + r.cuda_context_bytes + r.communication_bytes + r.allocator_bytes
+                     + mla_copies + load_workspace + r.extra_bytes + sum(resident_buffers.values()))
         serving_peak = weight + overhead + kv_required
         peak = max(load_peak, serving_peak)
-        capacity_blocks = max(0, (budget - weight - overhead) // block_bytes - 1) if block_bytes else ceildiv(c["max_position_embeddings"] * w.concurrency_per_dp, w.block_size)
+        fixed_runtime = overhead - sum(allocation.runtime_parts.values())
+        capacity = state_model.capacity(model, p, w, r, kv, bounds[pp_rank], count, budget - weight - fixed_runtime)
         for dp_rank in range(p.dp):
             for tp_rank in range(p.tp):
                 rank = adapter.rank(pp_rank, dp_rank, tp_rank, p, r)
@@ -347,7 +296,7 @@ def check(model: ModelProfile, *, hardware: Hardware | None = None,
                     allocated_tokens, kv_required, runtime_parts, overhead, load_peak,
                     serving_peak, budget, peak, budget - peak,
                     h.memory_bytes - h.external_used_bytes_per_gpu - peak,
-                    capacity_blocks * w.block_size, peak <= budget,
+                    capacity, peak <= budget, allocation.cache_parts,
                 ))
     result.ranks.sort(key=lambda x: x.rank)
     passed = all(x.memory_pass for x in result.ranks)
@@ -387,6 +336,7 @@ def check(model: ModelProfile, *, hardware: Hardware | None = None,
         "safety_margin_bytes": h.safety_margin_bytes,
         "runtime_profile": r.name,
         "runtime_provenance": r.provenance,
+        "load_workspace_bytes_per_rank": load_workspace,
         "weight_checkpoint": ("zai-org/GLM-5.1-FP8" if fmt == "fp8_block" else model.model_id)
             if model.model_id == "zai-org/GLM-5.1" else model.model_id,
         "weight_checkpoint_revision": model.provenance.get("fp8_revision", model.revision)
@@ -406,6 +356,13 @@ def check(model: ModelProfile, *, hardware: Hardware | None = None,
         result.summary["sglang_dp_attention"] = r.sglang_dp_attention
         result.summary["configured_kv_pool_tokens_per_dp"] = tokens
         result.warnings.append("SGLang mem_fraction_static is not a full-peak utilization control; max_total_tokens explicitly caps the modeled pool.")
+    if model.provenance.get("native_quantization"):
+        result.summary["native_weight_layout"] = model.provenance["native_quantization"]
+        result.summary["weight_format_semantics"] = "Native checkpoint mixed dtypes and explicit scale tensors; no blanket requantization"
+    if model.architecture == "dsv4":
+        result.summary["kv_rate_semantics"] = "Rounded-up amortized paged bytes/token, excludes reserved pages and compressor states; use exact rank allocations for demand"
+        result.summary["cache_allocation_policy"] = "CUDA V4 paged layout; SWA/full=1; FP32 offline C4/C128 states"
+        result.warnings.append("V4 dense scale storage uses an upper bound; allocator/workspace envelopes are assumed. Packed expert weight bytes are native. Physical SWA pool uses explicit ratio=1, not a 128-token ring.")
     if model.architecture == "gdn_qsa_moe":
         result.summary["workload_scope"] = "text_only"
         result.summary["vision_weight_placement"] = "replicated_upper_bound"

@@ -40,8 +40,8 @@ class PDResult:
 
 def check_pd(model: ModelProfile, *, prefill: PDPool, decode: PDPool,
              demand: PDDemand | None = None) -> PDResult:
-    if model.architecture in {"gdn_moe", "gdn_qsa_moe"} or "shared" in model.config.get("indexer_types", []):
-        return PDResult("unsupported", None, reasons=["Hybrid recurrent / shared-index state transfer is not validated; standalone pools only"])
+    if model.architecture in {"gdn_moe", "gdn_qsa_moe", "dsv4"} or "shared" in model.config.get("indexer_types", []):
+        return PDResult("unsupported", None, reasons=["Hybrid recurrent / shared-index / V4 compressor state transfer is not validated; standalone pools only"])
     d = demand or PDDemand()
     for name,value in asdict(d).items():
         if type(value) is not int or value < (0 if name=="inflight_handoffs_per_dp" else 1):

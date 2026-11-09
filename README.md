@@ -4,7 +4,7 @@
 
 面向大模型推理的显存预检与并行部署规划工具：估算每卡显存、KV Cache 和剩余容量，校验引擎约束，并搜索满足条件的部署组合。
 
-独立、离线、无运行时第三方依赖的 Python 组件。0.7.0 保留 **vLLM 0.19.0 / SGLang 0.5.10** 适配，并新增面向旗舰结构的 **SGLang 0.5.23** 有限支持。其他版本返回 unsupported，避免套用未经核实的规则。
+独立、离线、无运行时第三方依赖的 Python 组件。0.8.0 保留 **vLLM 0.19.0 / SGLang 0.5.10** 适配，并新增面向旗舰结构的 **SGLang 0.5.23** 有限支持。其他版本返回 unsupported，避免套用未经核实的规则。
 
 1. 检查指定模型、硬件、TP/DP/EP/PP 和负载的逐卡显存预算。
 2. 输出权重、KV、运行开销、峰值、余量、单 token KV 和缓存容量。
@@ -12,7 +12,87 @@
 
 **`pass` 表示在显式假设下通过显存和静态能力检查。运行时开销尚未在 H800 实测，输出始终包含 `deployment_verified=false`。候选组合需要真实环境启动验证，不能当作吞吐/SLO 或部署成功保证。**
 
-## 0.7.0：Qwen3.8-Flash-Next
+## 0.8.0：原生 FP8 / FP4 与独立引擎适配器
+
+截至 2026-11-09，核实 [上游正式版](https://github.com/sgl-project/sglang/releases/tag/v0.5.23)
+与 [PyPI](https://pypi.org/project/sglang/0.5.23/) 均为 **0.5.23**。
+新模型入口使用 `RuntimeProfile.sglang_current()`；现有 `sglang_flagship()` 仍指向
+同一版本。`RuntimeProfile.sglang_legacy()` 明确选择旧的 0.5.10；`sglang()` 作为
+旧 SDK 兼容入口保留原行为。版本常量统一在 `engine_versions.py` 中区分
+`SGLANG_CURRENT_VERSION` / `SGLANG_LEGACY_VERSION`。旧 `SGLANG_VERSION` 仅为
+兼容别名，内部不再使用；各版本的模型适用范围仍分别检查，不能直接换号套用。
+
+新增以下三个冻结快照，均可离线 `check/search`。原生量化使用
+`weight_quantization="native"`，也接受 `fp8` 别名；实际按 checkpoint 中的
+混合 dtype 与独立 scale 计费，不能理解为全部权重都是 FP8。
+
+| 模型 alias | 基础权重字节数（不含 MTP） | 新支持范围 |
+|---|---:|---|
+| `qwen3.8-flash-next-fp8` | 182,804,206,074 | FP8 routed experts / N-gram + BF16 exclusions；BF16 KV；TP/EP 搜索，PP=1 |
+| `deepseek-v4-flash` | 156,015,698,140 | FP8 主干 + 原生 MXFP4 专家；FP8 V4 分页缓存；TP/EP/PP 搜索 |
+| `deepseek-v4-pro` | 850,748,205,004 | 同上，使用独立 Pro 配置和 tensor headers |
+
+这三个新合同固定 **SGLang 0.5.23、Hopper SM90、DP=1、EP=TP**，关闭 radix、
+CUDA Graph 和 MTP，权重完整驻留 GPU。Flash-Next 仍仅覆盖文本负载，视觉权重
+采用复制上界。V4 固定 FlashMLA attention、FlashInfer CUTLASS MXFP4 W4A16、
+page=256、SWA/full=1 和离线 FP32 compressor state；这里显式覆盖 SGLang
+默认 SWA 比率。其他 GPU、其他 kernel/压缩布局、FP4→FP8 展开、offload 和新模型
+的 PD 交接均需新的合同。**V4.1 仍单独标记 unsupported。**
+
+V4 缓存分别报告 SWA、C4 KV、C4 index、C128 KV，另在 runtime 中列出 C4/C128
+压缩器状态和 RoPE 表。单 token 数值是分页摊销速率（向上取整），不能直接乘
+context 代替实际池分配。预检和容量反解使用完整池、保留页及 ring 尺寸。
+FP4 专家维度已经按每字节两个数打包；expert scales 保留 E8M0。
+普通 dense scale 按保守上界计费，辅助分配和工作区采用显式分析预留，运行开销仍未实测。
+
+H800 每卡 80 decimal GB、利用率 0.9、安全余量 1 GiB、context=8192、并发=1、
+batch=2048，在示例枚举范围内：
+
+| 模型 | 搜索最少卡数 | 一个通过组合（TP/DP/EP/PP） | 最小预算余量 |
+|---|---:|---|---:|
+| Flash-Next FP8 | 4 | 4/1/4/1 | 14.871 GiB |
+| V4 Flash | 3 | 1/1/1/3，层数 14,15,14 | 8.354 GiB |
+| V4 Pro | 16 | 8/1/8/2，层数 31,30 | 6.009 GiB |
+
+这是有限搜索的显存候选，不是实测最小部署或吞吐建议。V4 Flash 还可选 4 卡
+TP4/EP4/PP1，余量约 20.979 GiB；PP3 虽省卡，也有流水线通信与性能取舍。
+
+```python
+from inferfit import load_model, search, RuntimeProfile, Workload
+
+result = search(
+    load_model("deepseek-v4-pro"),
+    runtime=RuntimeProfile.sglang_current(),
+    workload=Workload(context_tokens=8192, block_size=256),
+    weight_quantization="native", kv_quantization="fp8",
+    tp_values=[1, 2, 4, 8], dp_values=[1], pp_values=range(1, 17),
+    max_gpus=32,
+)
+print(result.minimum_num_gpus)
+print(result.candidates[0].summary["engine_args"])
+print(result.candidates[0].summary["engine_env"])
+```
+
+```bash
+inferfit check examples/flagships/qwen38-flash-next-fp8-check.json
+inferfit check examples/flagships/deepseek-v4-flash-check.json
+inferfit search examples/flagships/deepseek-v4-pro-search.json
+python examples/native_models.py
+```
+
+原有 SGLang→vLLM 继承已移除：两个引擎分别实现中立 `EngineAdapter`。
+模型转换、存储和状态规则分别放在 `model_families/`、`weights.py`、`states/`；
+旧 SDK 导入路径保持兼容。新增模型所需材料与修改位置见 [ARCHITECTURE.md](ARCHITECTURE.md)。
+
+本次核对 131/46/64 个分片、152089/69187/145116 个 tensor 的全部 headers，
+其总字节数与各自官方索引一致，没有下载 tensor payload。
+来源：[Qwen FP8](https://huggingface.co/Qwen/Qwen3.8-Flash-Next-FP8)、
+[V4 Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash)、
+[V4 Pro](https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro)、
+[SGLang 池配置](https://github.com/sgl-project/sglang/blob/v0.5.23/python/sglang/srt/model_executor/pool_configurator.py)、
+[原生 MXFP4 后端](https://github.com/sgl-project/sglang/blob/v0.5.23/python/sglang/srt/layers/quantization/mxfp4_flashinfer_cutlass_moe.py)。
+
+## 0.7.0：Qwen3.8-Flash-Next（BF16 快照）
 
 新增 `load_model("qwen3.8-flash-next")`，也可使用完整模型 ID `Qwen/Qwen3.8-Flash-Next`。该模型实际为 **Qwen4-Exp** 架构，不能直接套用 Qwen3.8-2.4T 的 GQA+GDN 清单。
 
@@ -21,7 +101,7 @@
 - 48 层包含 **36 层 GDN、12 层 QSA**。QSA 保留全部历史主 KV，并增加每 4 token 一份的压缩 index key；top-k=2048 不代表只保存 2048 token。BF16 逻辑状态为 **25,344 bytes/token**；TP=2/4/8 时每卡为 **13,056 bytes/token**，其中 768 bytes 的压缩索引在 TP 间复制。
 - 固定状态单独计入：GDN recurrent/conv、PLE 的 9 步 short-conv、N-gram token history、QSA pending-key ring 和共享位置。它们按请求槽位计费，不乘上下文长度；QSA 工作区与四路 residual 的激活使用显式分析预留。
 
-本版支持 **SGLang 0.5.23、Hopper SM90、BF16 权重/KV、DP=1、PP=1、文本输入、N-gram 完全驻留 GPU、关闭 radix/CUDA Graph/MTP**。可检查 TP/EP 并搜索组合。视觉编码器权重采用每卡完整复制的保守预算；**未模拟图像/视频激活、FP8/NVFP4、CPU 卸载、CP 或 PD 交接**。未知变体和不支持的组合返回 unsupported，不静默沿用普通 Qwen 公式。
+本版支持 **SGLang 0.5.23、Hopper SM90、BF16 权重/KV、DP=1、PP=1、文本输入、N-gram 完全驻留 GPU、关闭 radix/CUDA Graph/MTP**。可检查 TP/EP 并搜索组合。视觉编码器权重采用每卡完整复制的保守预算；**未模拟图像/视频激活、NVFP4、CPU 卸载、CP 或 PD 交接**；原生 FP8 请使用上面的独立快照。未知变体和不支持的组合返回 unsupported，不静默沿用普通 Qwen 公式。
 
 ```python
 from inferfit import load_model, RuntimeProfile, Hardware, search
@@ -151,7 +231,7 @@ P/D 两池分别保存完整模型副本、分别检查逐卡预算，不能把�
 Python >=3.11；本次测试环境为 Python 3.15.2。wheel 安装不需要网络或 PyTorch。
 
 ```bash
-python3 -m pip install dist/inferfit-0.7.0-py3-none-any.whl
+python3 -m pip install dist/inferfit-0.8.0-py3-none-any.whl
 inferfit check examples/h800-glm51-check.json
 inferfit search examples/h800-glm51-search.json --output search-result.json
 ```
@@ -409,7 +489,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 python3 -m build
 ```
 
-95 项测试（包含新增旗舰结构用例）覆盖官方 BF16/FP8 元数据对照、MLA/DSA 单 token 大小、TP KV 复制、DP/EP、sequence-parallel shared experts、PP 逐卡不均衡及最优分层、缓存块/null block、容量边界、加载峰值、非法组合、搜索和 CLI，以及 SGLang 的 native 参数、部分 EP、DP attention、等额节点放置和真实池形状。
+119 项测试（包含新增旗舰结构用例）覆盖官方 BF16/FP8 元数据对照、MLA/DSA 单 token 大小、TP KV 复制、DP/EP、sequence-parallel shared experts、PP 逐卡不均衡及最优分层、缓存块/null block、容量边界、加载峰值、非法组合、搜索和 CLI，以及 SGLang 的 native 参数、部分 EP、DP attention、等额节点放置和真实池形状。
 
 模型配置、精简张量元数据和来源记录位于 `src/inferfit/data/`，足够离线运行及测试。完整权重索引、上游源码副本和本地研究报告不随仓库或发行包分发。
 

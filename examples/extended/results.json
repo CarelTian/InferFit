@@ -235,7 +235,7 @@
     "minimum_headroom_bytes": null,
     "kv_bytes_per_token_logical": null,
     "reasons": [
-      "DeepSeek V4/V4.1 requires dedicated compressed/shared cache, Engram and mixed quantization adapters; no capacity pass is inferred"
+      "DeepSeek V4.1 requires its own compressed/shared cache, Engram and quantization contract; original V4 Flash/Pro support does not imply V4.1 support"
     ],
     "deployment_verified": false
   },
@@ -531,7 +531,7 @@
     "minimum_headroom_bytes": null,
     "kv_bytes_per_token_logical": null,
     "reasons": [
-      "DeepSeek V4/V4.1 requires dedicated compressed/shared cache, Engram and mixed quantization adapters; no capacity pass is inferred"
+      "DeepSeek V4.1 requires its own compressed/shared cache, Engram and quantization contract; original V4 Flash/Pro support does not imply V4.1 support"
     ],
     "deployment_verified": false
   },

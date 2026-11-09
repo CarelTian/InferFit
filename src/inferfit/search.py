@@ -5,7 +5,7 @@ from collections import Counter
 from itertools import product
 from typing import Iterable
 
-from .adapters import get_adapter
+from .engines import get_adapter
 from .estimator import check
 from .partition import optimize_pipeline
 from .types import Hardware, ModelProfile, Parallelism, RuntimeProfile, SearchResult, Workload
@@ -52,7 +52,7 @@ def search(model: ModelProfile, *, hardware: Hardware | None = None,
             defaults = get_adapter(runtime or RuntimeProfile()).expert_choices(plan, runtime or RuntimeProfile())
         except ValueError:
             defaults = [1]
-        choices = eps if eps is not None else (defaults if model.architecture in {"mla_dsa", "gqa_moe", "gdn_moe", "gdn_qsa_moe"} else [1])
+        choices = eps if eps is not None else (defaults if model.architecture in {"mla_dsa", "gqa_moe", "gdn_moe", "gdn_qsa_moe", "dsv4"} else [1])
         for ep in choices:
             evaluate = optimize_pipeline if optimize_pp else check
             result = evaluate(model, hardware=hardware, workload=workload, runtime=runtime,
