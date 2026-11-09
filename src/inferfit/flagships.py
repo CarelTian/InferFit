@@ -96,7 +96,7 @@ def qwen35_moe_profile(config: dict, *, model_id="custom-qwen35-moe",
 
 def recurrent_state_bytes(model: ModelProfile, *, tp=1, layer_start=0, layers=None) -> int:
     """Fixed BF16 conv + FP32 recurrent state per request on one TP rank."""
-    if model.architecture != "gdn_moe":
+    if model.architecture not in {"gdn_moe", "gdn_qsa_moe"}:
         return 0
     c = model.config
     layers = c["num_hidden_layers"] - layer_start if layers is None else layers

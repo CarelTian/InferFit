@@ -9,7 +9,7 @@ from typing import Any
 from .tensor_rules import ROLES, first_stage, tensor_role
 from .types import Hardware, ModelProfile, RuntimeProfile, TensorSpec
 
-FAMILIES = {'gqa','gqa_moe','gdn_moe','mla_dsa'}
+FAMILIES = {'gqa','gqa_moe','gdn_moe','gdn_qsa_moe','mla_dsa'}
 PLACEMENTS = {'replicated','column','row','vocab','kv_column','expert_column','expert_row'}
 
 def _read(value):
@@ -32,10 +32,10 @@ def validate_model_profile(model: ModelProfile) -> ModelProfile:
         raise ValueError('model_id and revision are required strings')
     c=model.config
     for key in ('num_hidden_layers','num_attention_heads','hidden_size','max_position_embeddings'):_pos(c.get(key),key)
-    if model.architecture in {'gqa','gqa_moe','gdn_moe'}:
+    if model.architecture in {'gqa','gqa_moe','gdn_moe','gdn_qsa_moe'}:
         for key in ('num_key_value_heads','head_dim'):_pos(c.get(key),key)
         if c['num_attention_heads']%c['num_key_value_heads']:raise ValueError('Q heads must divide evenly into KV groups')
-        if model.architecture == 'gdn_moe':
+        if model.architecture in {'gdn_moe', 'gdn_qsa_moe'}:
             for key in ('linear_num_key_heads', 'linear_num_value_heads', 'linear_key_head_dim',
                         'linear_value_head_dim', 'linear_conv_kernel_dim'):
                 _pos(c.get(key), key)
@@ -44,11 +44,19 @@ def validate_model_profile(model: ModelProfile) -> ModelProfile:
                 raise ValueError('Hybrid profiles require explicit full/linear layer_types')
             if c.get('mamba_ssm_dtype', 'float32') != 'float32':
                 raise ValueError('Only FP32 hybrid recurrent state is supported')
+            if model.architecture == 'gdn_qsa_moe':
+                for key in ('hc_count', 'indexer_kv_heads', 'indexer_head_dim', 'indexer_compress_ratio',
+                            'indexer_budget', 'ngram_size', 'ple_conv_kernel_size'):
+                    _pos(c.get(key), key)
+                if c['indexer_kv_heads'] * c['indexer_head_dim'] * 2 % c['indexer_compress_ratio']:
+                    raise ValueError('QSA compressed bytes must divide evenly per token')
+                if not isinstance(c.get('ple_layer_ids'), list) or any(type(i) is not int or not 1 <= i <= c['num_hidden_layers'] for i in c['ple_layer_ids']):
+                    raise ValueError('PLE layer IDs must be one-based model layer indices')
     else:
         for key in ('kv_lora_rank','qk_rope_head_dim','qk_nope_head_dim','v_head_dim','index_head_dim'):_pos(c.get(key),key)
     expert_count=None
-    if model.architecture in {'gqa_moe','gdn_moe','mla_dsa'}:
-        expert_count=c.get('num_experts' if model.architecture in {'gqa_moe','gdn_moe'} else 'n_routed_experts')
+    if model.architecture in {'gqa_moe','gdn_moe','gdn_qsa_moe','mla_dsa'}:
+        expert_count=c.get('num_experts' if model.architecture in {'gqa_moe','gdn_moe','gdn_qsa_moe'} else 'n_routed_experts')
         _pos(expert_count,'expert count')
     if not model.tensors:raise ValueError('Tensor inventory cannot be empty')
     seen=set();covered=set()
@@ -60,7 +68,7 @@ def validate_model_profile(model: ModelProfile) -> ModelProfile:
         if t.layer is not None and t.pp_owner is not None:raise ValueError("Layer tensors cannot have an endpoint owner")
         if not t.shape:raise ValueError('Tensor shape is required')
         for dim in t.shape:_pos(dim,'tensor dimension')
-        if t.dtype not in {'BF16','F16','F32'}:raise ValueError('Tensor source dtype must be BF16/F16/F32')
+        if t.dtype not in {'BF16','F16','F32','I64'}:raise ValueError('Tensor source dtype must be BF16/F16/F32/I64')
         if t.placement not in PLACEMENTS:raise ValueError('Unknown tensor placement')
         _pos(t.multiplicity,'multiplicity')
         if type(t.quantizable) is not bool:raise ValueError('quantizable must be boolean')

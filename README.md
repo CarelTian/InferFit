@@ -4,13 +4,46 @@
 
 面向大模型推理的显存预检与并行部署规划工具：估算每卡显存、KV Cache 和剩余容量，校验引擎约束，并搜索满足条件的部署组合。
 
-独立、离线、无运行时第三方依赖的 Python 组件。0.6.0 保留 **vLLM 0.19.0 / SGLang 0.5.10** 适配，并新增面向旗舰结构的 **SGLang 0.5.23** 有限支持。其他版本返回 unsupported，避免套用未经核实的规则。
+独立、离线、无运行时第三方依赖的 Python 组件。0.7.0 保留 **vLLM 0.19.0 / SGLang 0.5.10** 适配，并新增面向旗舰结构的 **SGLang 0.5.23** 有限支持。其他版本返回 unsupported，避免套用未经核实的规则。
 
 1. 检查指定模型、硬件、TP/DP/EP/PP 和负载的逐卡显存预算。
 2. 输出权重、KV、运行开销、峰值、余量、单 token KV 和缓存容量。
 3. 枚举可行组合，并用动态规划优化 PP 分层，输出引擎参数及分层环境变量。
 
 **`pass` 表示在显式假设下通过显存和静态能力检查。运行时开销尚未在 H800 实测，输出始终包含 `deployment_verified=false`。候选组合需要真实环境启动验证，不能当作吞吐/SLO 或部署成功保证。**
+
+## 0.7.0：Qwen3.8-Flash-Next
+
+新增 `load_model("qwen3.8-flash-next")`，也可使用完整模型 ID `Qwen/Qwen3.8-Flash-Next`。该模型实际为 **Qwen4-Exp** 架构，不能直接套用 Qwen3.8-2.4T 的 GQA+GDN 清单。
+
+- 冻结官方 revision `812d96e10a0dd82b69d749e68693698cf6c36daa` 的完整嵌套 text/vision 配置；通过 HTTP Range 收集 **131 个分片、1658 个张量**的文件头，没有下载权重正文。全 checkpoint 为 **359,999,963,128 bytes**，与官方索引一致；剔除未启用的 MTP 后为 **354,785,661,432 bytes**。SGLang 另生成一个 BF16 标量，运行时还将 GDN A_log 升为 FP32，分别计入预算。
+- 权重清单包含 Gated Residual、约 **102.4 GB BF16 N-gram 表**、视觉编码器及 I64 缓冲。128 个磁盘 N-gram shards 合并后再按运行时 TP 切分，不能将磁盘分片数当成 GPU 数。
+- 48 层包含 **36 层 GDN、12 层 QSA**。QSA 保留全部历史主 KV，并增加每 4 token 一份的压缩 index key；top-k=2048 不代表只保存 2048 token。BF16 逻辑状态为 **25,344 bytes/token**；TP=2/4/8 时每卡为 **13,056 bytes/token**，其中 768 bytes 的压缩索引在 TP 间复制。
+- 固定状态单独计入：GDN recurrent/conv、PLE 的 9 步 short-conv、N-gram token history、QSA pending-key ring 和共享位置。它们按请求槽位计费，不乘上下文长度；QSA 工作区与四路 residual 的激活使用显式分析预留。
+
+本版支持 **SGLang 0.5.23、Hopper SM90、BF16 权重/KV、DP=1、PP=1、文本输入、N-gram 完全驻留 GPU、关闭 radix/CUDA Graph/MTP**。可检查 TP/EP 并搜索组合。视觉编码器权重采用每卡完整复制的保守预算；**未模拟图像/视频激活、FP8/NVFP4、CPU 卸载、CP 或 PD 交接**。未知变体和不支持的组合返回 unsupported，不静默沿用普通 Qwen 公式。
+
+```python
+from inferfit import load_model, RuntimeProfile, Hardware, search
+
+result = search(
+    load_model("qwen3.8-flash-next"),
+    runtime=RuntimeProfile.sglang_flagship(),
+    hardware=Hardware(memory_bytes=80_000_000_000),
+    weight_quantization="bf16", kv_quantization="bf16",
+    tp_values=[1, 2, 4, 8], dp_values=[1], pp_values=[1], max_gpus=8,
+)
+print(result.minimum_num_gpus)
+```
+
+```bash
+inferfit check examples/flagships/qwen38-flash-next-check.json
+inferfit search examples/flagships/qwen38-flash-next-search.json
+```
+
+示例在每卡 80 decimal GB、90% 利用率、额外 1 GiB 安全余量、8192 token、并发 1、batch 2048 的假设下，搜索到 8 卡候选。该结论仅对示例搜索空间成立，运行时预留仍未校准，**没有 GPU 启动验证**。
+
+配置、tensor shapes/dtypes、文件头摘要和 SGLang 来源链接保存在 `src/inferfit/data/qwen38-flash-next-*.json`；不保留上游源码副本或本地报告目录。参考：[官方模型](https://huggingface.co/Qwen/Qwen3.8-Flash-Next)、[SGLang cookbook](https://docs.sglang.io/cookbook/autoregressive/Qwen/Qwen3.8-Flash-Next)、[QSA 缓存池](https://github.com/sgl-project/sglang/blob/v0.5.23/python/sglang/srt/mem_cache/qsa_kv_pool.py)。
 
 ## 0.6.0：最新旗舰快照与 SGLang 适配
 
@@ -118,7 +151,7 @@ P/D 两池分别保存完整模型副本、分别检查逐卡预算，不能把�
 Python >=3.11；本次测试环境为 Python 3.15.2。wheel 安装不需要网络或 PyTorch。
 
 ```bash
-python3 -m pip install dist/inferfit-0.6.0-py3-none-any.whl
+python3 -m pip install dist/inferfit-0.7.0-py3-none-any.whl
 inferfit check examples/h800-glm51-check.json
 inferfit search examples/h800-glm51-search.json --output search-result.json
 ```
@@ -376,7 +409,7 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 python3 -m build
 ```
 
-86 项测试（包含新增旗舰结构用例）覆盖官方 BF16/FP8 元数据对照、MLA/DSA 单 token 大小、TP KV 复制、DP/EP、sequence-parallel shared experts、PP 逐卡不均衡及最优分层、缓存块/null block、容量边界、加载峰值、非法组合、搜索和 CLI，以及 SGLang 的 native 参数、部分 EP、DP attention、等额节点放置和真实池形状。
+95 项测试（包含新增旗舰结构用例）覆盖官方 BF16/FP8 元数据对照、MLA/DSA 单 token 大小、TP KV 复制、DP/EP、sequence-parallel shared experts、PP 逐卡不均衡及最优分层、缓存块/null block、容量边界、加载峰值、非法组合、搜索和 CLI，以及 SGLang 的 native 参数、部分 EP、DP attention、等额节点放置和真实池形状。
 
 模型配置、精简张量元数据和来源记录位于 `src/inferfit/data/`，足够离线运行及测试。完整权重索引、上游源码副本和本地研究报告不随仓库或发行包分发。
 

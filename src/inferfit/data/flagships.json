@@ -40,5 +40,19 @@
       "DeepSeek V4.1 native FP8 32x32 UE8M0 / FP4 expert storage is not modeled; generic FP8 128x128 is invalid",
       "Shared compressed KV, candidate/index pools, Engram placement and vision residency require a dedicated capacity adapter; no capacity pass or deployable search result is inferred"
     ]
+  },
+  {
+    "alias": "qwen3.8-flash-next",
+    "id": "Qwen/Qwen3.8-Flash-Next",
+    "config_file": "qwen38-flash-next-config.json",
+    "config_sha256": "889658f2508e8c61d409b02e70e0d78d8d4452ec65aaafbe129805d213d2e74b",
+    "revision": "812d96e10a0dd82b69d749e68693698cf6c36daa",
+    "revision_kind": "hf_commit",
+    "source_url": "https://huggingface.co/Qwen/Qwen3.8-Flash-Next/raw/812d96e10a0dd82b69d749e68693698cf6c36daa/config.json",
+    "checked_at": "2026-11-09",
+    "support": "analytical",
+    "sglang_version": "0.5.23",
+    "scope": "BF16 text-only workload; GPU-resident N-gram; conservative replicated vision-weight budget; DP=1 and PP=1",
+    "blockers": []
   }
 ]

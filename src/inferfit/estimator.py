@@ -25,12 +25,14 @@ def storage_bytes(shape: tuple[int, ...], dtype: str, quantized: bool) -> int:
         if len(shape) != 2:
             raise ValueError("Block quantization requires a matrix")
         return math.prod(shape) + 4 * ceildiv(shape[0], 128) * ceildiv(shape[1], 128)
-    return math.prod(shape) * {"BF16": 2, "F16": 2, "F32": 4}[dtype]
+    return math.prod(shape) * {"BF16": 2, "F16": 2, "F32": 4, "I64": 8}[dtype]
 
 
 def logical_weight_bytes(model: ModelProfile, weight_quantization: str = "bf16") -> int:
     """Unpartitioned inventory size, including scales; excludes runtime transforms."""
     fmt = WEIGHT_ALIASES.get(weight_quantization, weight_quantization)
+    if model.architecture == "gdn_qsa_moe" and fmt != "bf16":
+        raise ValueError("Flash-Next inventory covers BF16 weights only")
     if fmt not in {"bf16", "fp16", "fp8_block"}:
         raise ValueError(f"Unsupported weight format: {fmt}")
     return sum(storage_bytes(t.shape, t.dtype, fmt == "fp8_block" and t.quantizable)
@@ -87,7 +89,7 @@ def kv_per_token(model: ModelProfile, *, tp: int = 1, layers: int | None = None,
     if type(layer_start) is not int or layer_start < 0 or layer_start + layers > c["num_hidden_layers"]:
         raise ValueError("Invalid layer interval")
     adapter = get_adapter(runtime or RuntimeProfile())
-    if model.architecture == "gdn_moe" or "shared" in c.get("indexer_types", []):
+    if model.architecture in {"gdn_moe", "gdn_qsa_moe"} or "shared" in c.get("indexer_types", []):
         if (adapter.engine, adapter.version) != ("sglang", "0.5.23"):
             raise ValueError("Hybrid GDN / shared-index KV requires SGLang 0.5.23")
     dtype = adapter.normalize_kv(kv_quantization, model)
@@ -107,16 +109,21 @@ def kv_per_token(model: ModelProfile, *, tp: int = 1, layers: int | None = None,
         parts = {"latent": latent * layers, "rope": rope * layers,
                  "mla_scales": scales * layers,
                  "index_keys": 128 * index_layers, "index_scales": 4 * index_layers}
-    elif model.architecture in {"gqa", "gqa_moe", "gdn_moe"}:
+    elif model.architecture in {"gqa", "gqa_moe", "gdn_moe", "gdn_qsa_moe"}:
         if dtype not in {"bf16", "fp16", "fp8" if adapter.engine == "vllm" else "fp8_e4m3"}:
             raise ValueError("GQA supports bf16, fp16 or fp8 KV")
         kv_heads = c["num_key_value_heads"]
         if (kv_heads >= tp and kv_heads % tp) or (kv_heads < tp and tp % kv_heads):
             raise ValueError("KV heads cannot be evenly sharded/replicated by this TP")
         heads = max(1, kv_heads // tp)
-        cached_layers = c["layer_types"][layer_start:layer_start + layers].count("full_attention") if model.architecture == "gdn_moe" else layers
+        cached_layers = c["layer_types"][layer_start:layer_start + layers].count("full_attention") if model.architecture in {"gdn_moe", "gdn_qsa_moe"} else layers
         size = cached_layers * heads * c["head_dim"] * (1 if dtype in {"fp8", "fp8_e4m3"} else 2)
         parts = {"keys": size, "values": size}
+        if model.architecture == "gdn_qsa_moe":
+            if dtype != "bf16":
+                raise ValueError("Flash-Next cache contract covers BF16 only")
+            parts["qsa_compressed_keys"] = (cached_layers * c["indexer_kv_heads"] *
+                c["indexer_head_dim"] * 2 // c["indexer_compress_ratio"])
     else:
         raise ValueError(f"Unsupported state architecture: {model.architecture}")
     return {**parts, "total": sum(parts.values())}
@@ -168,7 +175,7 @@ def _validate(model: ModelProfile, h: Hardware, p: Parallelism, w: Workload,
         return invalid, unsupported
     if p.num_gpus != p.tp * p.dp * p.pp:
         invalid.append("num_gpus must equal TP * DP * PP; EP reuses TP*DP ranks")
-    if model.architecture == "gdn_moe" or "shared" in model.config.get("indexer_types", []):
+    if model.architecture in {"gdn_moe", "gdn_qsa_moe"} or "shared" in model.config.get("indexer_types", []):
         if (r.engine, r.version) != ("sglang", "0.5.23"):
             unsupported.append("Hybrid GDN / shared-index models require the inspected SGLang 0.5.23 adapter")
     if p.pp > model.config["num_hidden_layers"]:
@@ -183,7 +190,7 @@ def _validate(model: ModelProfile, h: Hardware, p: Parallelism, w: Workload,
         invalid.append("External use must be smaller than physical memory")
     if kv in {"fp8", "fp8_e4m3", "fp8_ds_mla"} and h.compute_capability < 89:
         unsupported.append("This pinned adapter does not support FP8 KV on pre-FP8 GPUs")
-    if model.architecture in {"gqa_moe", "gdn_moe"} and model.config["num_experts"] % p.ep:
+    if model.architecture in {"gqa_moe", "gdn_moe", "gdn_qsa_moe"} and model.config["num_experts"] % p.ep:
         invalid.append("num_experts must be divisible by EP")
     if model.architecture == "mla_dsa":
         if (model.config["kv_lora_rank"],model.config["qk_rope_head_dim"],model.config["index_head_dim"]) != (512,64,128):
@@ -198,7 +205,7 @@ def _validate(model: ModelProfile, h: Hardware, p: Parallelism, w: Workload,
             unsupported.append("This runtime profile covers Hopper SM90 only")
         if model.provenance.get("mtp_included"):
             unsupported.append("MTP runtime/cache simulation is not implemented; use base model only")
-    elif model.architecture in {"gqa", "gqa_moe", "gdn_moe"}:
+    elif model.architecture in {"gqa", "gqa_moe", "gdn_moe", "gdn_qsa_moe"}:
         if model.architecture == "gqa" and p.ep != 1:
             invalid.append("Dense GQA models require EP=1")
     else:
@@ -302,6 +309,8 @@ def check(model: ModelProfile, *, hardware: Hardware | None = None,
         # Batch metadata and block tables have per-rank resident allocations.
         metadata = adapter.metadata_bytes(w)
         activation = r.activation_fixed_bytes + w.max_batch_tokens * adapter.batch_multiplier(p, r) * c["hidden_size"] * 2 * r.activation_copies
+        if model.architecture == "gdn_qsa_moe":
+            activation += w.max_batch_tokens * c["hidden_size"] * (c["hc_count"] - 1) * 2 * r.activation_copies
         from .flagships import recurrent_state_bytes
         recurrent = recurrent_state_bytes(model, tp=p.tp, layer_start=bounds[pp_rank], layers=count) * (w.concurrency_per_dp + 1)
         runtime_parts = {
@@ -315,8 +324,14 @@ def check(model: ModelProfile, *, hardware: Hardware | None = None,
             "block_table_metadata": metadata,
             "extra": r.extra_bytes,
         }
-        if model.architecture == "gdn_moe":
+        if model.architecture in {"gdn_moe", "gdn_qsa_moe"}:
             runtime_parts["recurrent_state_pool"] = recurrent
+        if model.architecture == "gdn_qsa_moe":
+            from .qwen_flash_next import flash_next_fixed_state
+            runtime_parts.update({key: value * (w.concurrency_per_dp + 1) for key, value in
+                flash_next_fixed_state(model, layer_start=bounds[pp_rank], layers=count).items()})
+            runtime_parts["qsa_prefill_workspace_envelope"] = (128 * 1024**2 +
+                w.max_batch_tokens * (c["indexer_budget"] + c["indexer_compress_ratio"] - 1) * 4)
         overhead = sum(runtime_parts.values())
         weight = local_weights[pp_rank]
         load_peak = weight + r.cuda_context_bytes + r.communication_bytes + r.allocator_bytes + mla_copies + r.load_workspace_bytes + r.extra_bytes
@@ -391,6 +406,10 @@ def check(model: ModelProfile, *, hardware: Hardware | None = None,
         result.summary["sglang_dp_attention"] = r.sglang_dp_attention
         result.summary["configured_kv_pool_tokens_per_dp"] = tokens
         result.warnings.append("SGLang mem_fraction_static is not a full-peak utilization control; max_total_tokens explicitly caps the modeled pool.")
+    if model.architecture == "gdn_qsa_moe":
+        result.summary["workload_scope"] = "text_only"
+        result.summary["vision_weight_placement"] = "replicated_upper_bound"
+        result.warnings.append("Vision encoder weights are conservatively replicated in the budget; image/video activation memory is not modeled.")
     if nodes > 1:
         result.warnings.append("Multi-node candidate requires an actual connected cluster and distributed bootstrap.")
     return result

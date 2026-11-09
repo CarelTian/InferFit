@@ -191,7 +191,7 @@ class SglangAdapter(VllmAdapter):
 
     def tensor_dtype(self, t: TensorSpec) -> str:
         # SGLang Indexer creates LayerNorm parameters in FP32.
-        return "F32" if tensor_role(t) == "index_norm" else t.dtype
+        return "F32" if tensor_role(t) == "index_norm" or t.name.endswith(".linear_attn.A_log") else t.dtype
 
     def projection_copies(self, fmt: str) -> bool:
         # SGLang materializes contiguous w_kc/w_vc even for BF16 weights.
@@ -261,13 +261,20 @@ class SglangFlagshipAdapter(SglangAdapter):
 
     def validate(self, model, h, p, w, r, fmt, kv):
         errors = super().validate(model, h, p, w, r, fmt, kv)
-        if model.architecture != "gdn_moe" and "shared" not in model.config.get("indexer_types", []):
+        if model.architecture not in {"gdn_moe", "gdn_qsa_moe"} and "shared" not in model.config.get("indexer_types", []):
             errors.append("SGLang 0.5.23 adapter is scoped to hybrid GDN and shared-index GLM")
         if r.sglang_dp_attention or p.dp != 1:
             errors.append("Flagship adapter currently requires DP=1; new DP layer-boundary mappings are not validated")
         if kv != "bf16":
             errors.append("Flagship cache contract currently covers BF16 KV only")
-        if model.architecture == "gdn_moe":
+        if model.architecture == "gdn_qsa_moe":
+            if p.pp != 1:
+                errors.append("Flash-Next currently requires PP=1; vision and PLE pipeline placement is not validated")
+            if w.block_size <= 1 or w.block_size % model.config["indexer_compress_ratio"]:
+                errors.append("QSA page size must be >1 and divisible by indexer_compress_ratio")
+            if h.compute_capability != 90:
+                errors.append("This Flash-Next contract currently covers Hopper SM90 only")
+        if model.architecture in {"gdn_moe", "gdn_qsa_moe"}:
             from .flagships import recurrent_state_bytes
             try:
                 recurrent_state_bytes(model, tp=p.tp)
@@ -281,7 +288,10 @@ class SglangFlagshipAdapter(SglangAdapter):
 
     def engine_config(self, model, h, p, w, r, fmt, kv, budget, counts, tokens):
         args, env = super().engine_config(model, h, p, w, r, fmt, kv, budget, counts, tokens)
-        if model.architecture == "gdn_moe":
+        if model.architecture in {"gdn_moe", "gdn_qsa_moe"}:
             args["max_mamba_cache_size"] = w.concurrency_per_dp
             env.update(SGLANG_MAMBA_SSM_DTYPE="float32", SGLANG_MAMBA_CONV_DTYPE="bfloat16")
+        if model.architecture == "gdn_qsa_moe":
+            args["qsa_indexer_dtype"] = "bfloat16"
+            args["disable_radix_cache"] = True
         return args, env

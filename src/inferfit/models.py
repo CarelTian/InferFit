@@ -188,7 +188,7 @@ def register_model_adapter(model_type: str, builder) -> None:
     """Register trusted Python config conversion; JSON never imports plugins."""
     if not isinstance(model_type,str) or not model_type or not callable(builder):
         raise ValueError("A model_type and callable builder are required")
-    if model_type in _MODEL_ADAPTERS or model_type in {"glm_moe_dsa","qwen3_moe","llama","qwen2","qwen3","qwen3_5_moe_text"}:
+    if model_type in _MODEL_ADAPTERS or model_type in {"glm_moe_dsa","qwen3_moe","llama","qwen2","qwen3","qwen3_5_moe_text","qwen4_exp","qwen4_exp_text"}:
         raise ValueError("Adapter already registered; built-ins cannot be replaced")
     _MODEL_ADAPTERS[model_type] = builder
 
@@ -198,6 +198,9 @@ def from_config(config: dict[str, Any] | str | Path, **kwargs: Any) -> ModelProf
     if config.get("model_type") in _MODEL_ADAPTERS:
         from .profiles import validate_model_profile
         return validate_model_profile(_MODEL_ADAPTERS[config["model_type"]](copy.deepcopy(config), **kwargs))
+    if config.get("model_type") in {"qwen4_exp", "qwen4_exp_text"}:
+        from .qwen_flash_next import flash_next_profile
+        return flash_next_profile(config, **kwargs)
     if config.get("model_type") == "qwen3_5_moe_text":
         from .flagships import qwen35_moe_profile
         return qwen35_moe_profile(config, **kwargs)

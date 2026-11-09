@@ -1,4 +1,4 @@
-# InferFit 输入合同与扩展指南（0.6.0）
+# InferFit 输入合同与扩展指南（0.7.0）
 
 预检层接收统一的 `ModelProfile + Hardware + RuntimeProfile + Parallelism + Workload`。
 `check / search / optimize_pipeline / check_pd` 不依赖模型商品名或硬件 catalog 名称。
@@ -75,7 +75,7 @@ MoE 另需 `num_experts`；MLA/DSA 另需 `kv_lora_rank / qk_rope_head_dim / qk_
 ```
 
 - shape 表示**单份张量**；multiplicity 表示相同 shape 的重复份数，例如 128 个常驻专家。
-- dtype 为源权重 BF16/F16/F32。`quantizable=true` 表示选择 fp8_block 时允许转换，不表示当前 header 已是 FP8。
+- dtype 为源权重 BF16/F16/F32/I64。`quantizable=true` 表示选择 fp8_block 时允许转换，不表示当前 header 已是 FP8。
 - placement：`replicated / column / row / vocab / kv_column / expert_column / expert_row`。column/row 是输出/输入维分片；kv_column 会处理 KV head 复制；专家维与剩余 expert TP 由引擎 adapter 决定。
 - role：`embedding / output / attention / dense_ffn / shared_expert / routed_expert / norm / index_norm / index / generic`。外部清单必须显式填写，不能使用 auto；核心不再依赖张量名称子串判断角色。
 - 普通层张量写 layer 编号，pp_owner=null；全局张量写 layer=null，并明确 pp_owner=`first` 或 `last`。权重重复、复制或 tying 关系由调用方如实描述。
@@ -191,3 +191,9 @@ model = from_config({'model_type': 'vendor_model_type', ...})
 `memory_family="gdn_moe"` requires explicit `layer_types` and the linear K/V head dimensions from config. Token KV and fixed recurrent state are distinct: `kv_per_token` reports only growing full-attention KV; `recurrent_state_bytes` reports fixed state per request. Stage intervals use `layer_start` plus `layers`; PP optimization sums each actual layer rather than multiplying an average layer. The inspected execution contract is `RuntimeProfile.sglang_flagship()` (0.5.23), with BF16 weights/KV, FP32 SSM, DP=1 and no state sharing. PD handoff is rejected until recurrent-state transport is modeled.
 
 GLM shared-index profiles use `indexer_types` to identify owned index tensors/cache; only SGLang 0.5.23, DP=1 and PP=1 are admitted currently. Model recognition in `flagship_catalog()` is distinct from analytical capacity support: DeepSeek V4.1 remains `recognized_only` and never generates a capacity pass.
+
+## Flash-Next memory family (0.7.0)
+
+`gdn_qsa_moe` extends the hybrid contract with growing compressed QSA index keys and fixed PLE/QSA side-state pools. It requires the QSA dimensions/compression ratio, HC width and PLE layer IDs. PLE layer IDs in the source config are one-based. The built-in config converter only accepts the frozen complete `qwen4_exp` text/vision snapshot; arbitrary structural variants require new checkpoint metadata. I64 source buffers are retained as eight-byte integers.
+
+The checkpoint audit inventory includes MTP so its aggregate can be checked against the original index. The generated runtime profile excludes MTP, consolidates on-disk N-gram shards, and adds SGLang-regenerated buffers. Thus checkpoint bytes, logical base inventory bytes and per-rank resident bytes are explicitly different quantities. Vision parameters use a replicated upper budget. PP>1 and PD are rejected in this release; the existing PP optimizer remains unchanged for supported older families.

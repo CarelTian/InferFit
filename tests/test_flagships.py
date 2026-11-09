@@ -20,7 +20,7 @@ class FlagshipTests(unittest.TestCase):
 
     def test_catalog_separates_recognition_from_capacity_support(self):
         entries = flagship_catalog()
-        self.assertEqual(len(entries), 3)
+        self.assertEqual(len(entries), 4)
         self.assertEqual(entries[2]["support"], "recognized_only")
         with self.assertRaisesRegex(UnsupportedModelError, "FP4"):
             load_model(entries[2]["id"])
