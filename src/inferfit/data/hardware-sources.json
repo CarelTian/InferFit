@@ -1,0 +1,10 @@
+{
+  "retrieved_at": "2026-11-05",
+  "capacity_policy": "NVIDIA fixtures use nominal decimal GB, not measured free or usable memory. Explicit memory_bytes overrides the published capacity.",
+  "sources": {
+    "h100-sxm-80gb": "https://www.nvidia.com/en-us/data-center/h100/",
+    "h20-96gb": "https://nvidia.github.io/cosmos-framework/skills/cookbooks/cosmos3/nim/support-matrix/",
+    "a100-40gb": "https://images.nvidia.com/data-center/a100/a100-datasheet.pdf",
+    "a100-80gb": "https://images.nvidia.com/data-center/a100/a100-datasheet.pdf"
+  }
+}

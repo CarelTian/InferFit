@@ -1,0 +1,69 @@
+# Python bytecode and interpreter caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging and build outputs
+build/
+dist/
+.eggs/
+*.egg-info/
+*.egg
+*.whl
+pip-wheel-metadata/
+
+# Test, coverage and static analysis caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.cover
+
+# Local environment settings; keep shareable templates
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Local verification outputs and default CLI output
+/verification*.log
+/verification.json
+/search-result.json
+
+# Reproduce examples from scenario inputs; keep generated outputs local.
+/examples/*-result.json
+/examples/*comparison.json
+/examples/extended/results.json
+/examples/flagships/summary.json
+/examples/profiles/result.json
+
+# Editors and notebook checkpoints
+.idea/
+.ipynb_checkpoints/
+*.swp
+*.swo
+*~
+
+# Operating system metadata
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+
+/research/
+/reports/

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "kind": "runtime",
+  "runtime": {
+    "name": "vllm-0.19.0-hopper-eager-assumed",
+    "engine": "vllm",
+    "version": "0.19.0",
+    "provenance": "assumed",
+    "enforce_eager": true,
+    "cuda_context_bytes": 1073741824,
+    "communication_bytes": 2147483648,
+    "allocator_bytes": 1073741824,
+    "graph_bytes": 0,
+    "activation_fixed_bytes": 1073741824,
+    "activation_copies": 16,
+    "load_workspace_bytes": 2147483648,
+    "extra_bytes": 0,
+    "max_batch_tokens_supported": 8192,
+    "max_concurrency_per_dp_supported": 128,
+    "kv_pool_overhead_ratio": 1.0,
+    "sglang_dp_attention": false
+  },
+  "provenance": {
+    "kind": "assumed"
+  }
+}

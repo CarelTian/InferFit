@@ -1,0 +1,35 @@
+{
+  "model": "qwen3.8-flash-next-fp8",
+  "hardware": {
+    "memory_bytes": 80000000000,
+    "gpus_per_node": 8
+  },
+  "runtime": {
+    "engine": "sglang",
+    "version": "0.5.23"
+  },
+  "workload": {
+    "context_tokens": 8192,
+    "concurrency_per_dp": 1,
+    "max_batch_tokens": 2048,
+    "block_size": 64
+  },
+  "weight_quantization": "native",
+  "kv_quantization": "bf16",
+  "search": {
+    "tp_values": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "dp_values": [
+      1
+    ],
+    "pp_values": [
+      1
+    ],
+    "max_gpus": 8,
+    "limit": 12
+  }
+}

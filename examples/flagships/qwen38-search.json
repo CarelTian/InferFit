@@ -1,0 +1,36 @@
+{
+  "hardware": {
+    "memory_bytes": 80000000000,
+    "gpus_per_node": 8,
+    "allow_cross_node_tp": true
+  },
+  "runtime": {
+    "engine": "sglang",
+    "version": "0.5.23"
+  },
+  "workload": {
+    "context_tokens": 8192,
+    "concurrency_per_dp": 1,
+    "max_batch_tokens": 2048
+  },
+  "kv_quantization": "bf16",
+  "model": "qwen3.8-2.4t-a95b",
+  "weight_quantization": "bf16",
+  "search": {
+    "tp_values": [
+      4,
+      8
+    ],
+    "dp_values": [
+      1
+    ],
+    "pp_values": [
+      8,
+      12,
+      16
+    ],
+    "max_gpus": 128,
+    "optimize_pp": true,
+    "limit": 10
+  }
+}

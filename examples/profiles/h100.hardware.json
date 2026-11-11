@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "kind": "hardware",
+  "hardware": {
+    "name": "h100-sxm-80gb",
+    "memory_bytes": 80000000000,
+    "compute_capability": 90,
+    "gpus_per_node": 8,
+    "external_used_bytes_per_gpu": 0,
+    "utilization": 0.9,
+    "safety_margin_bytes": 1073741824,
+    "inter_node_network": true,
+    "allow_cross_node_tp": false,
+    "platform": "cuda"
+  },
+  "provenance": {
+    "kind": "nominal_spec",
+    "note": "Override memory_bytes with driver-visible bytes"
+  }
+}

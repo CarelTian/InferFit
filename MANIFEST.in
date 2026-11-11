@@ -1,0 +1,5 @@
+include LICENSE README.md THIRD_PARTY.md PROFILE_CONTRACT.md ARCHITECTURE.md
+recursive-include examples *.json *.py
+recursive-include tests *.py
+recursive-include src/inferfit/data *.json
+recursive-include tools *.py

@@ -1,0 +1,64 @@
+{
+  "retrieved_at": "2026-11-02",
+  "bf16_revision": "26e1bd6e011feb778d25ae34b09b07074139d92d",
+  "fp8_revision": "f396cf805182f4ca10fa675e1a99815b3ca384db",
+  "bf16_config_url": "https://huggingface.co/zai-org/GLM-5.1/resolve/26e1bd6e011feb778d25ae34b09b07074139d92d/config.json",
+  "fp8_config_url": "https://huggingface.co/zai-org/GLM-5.1-FP8/resolve/f396cf805182f4ca10fa675e1a99815b3ca384db/config.json",
+  "bf16_checkpoint_total_bytes": 1507728316928,
+  "fp8_checkpoint_total_bytes": 756162687872,
+  "hardware_source": "https://docs.nvidia.com/ai-enterprise/release-7/latest/infra-software/vgpu/reference/hopper.html",
+  "hardware_capacity_policy": "H800 80GB nominal capacity = 80,000,000,000 bytes; override with driver-visible bytes.",
+  "runtime_source_tag": "v0.19.0",
+  "runtime_sources": {
+    "vllm-mla-attention-v019.py": {
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/model_executor/layers/attention/mla_attention.py",
+      "sha256": "a816328aaf1f6e6c5752eff9b27c736b46bb0b08edc5ced933b3acc89ef7ba39"
+    },
+    "vllm-glm-v019.py": {
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/model_executor/models/glm4_moe_lite.py",
+      "sha256": "0d56282350abd5444137592cb936c0d0b873caf723ada6f840918f09ce9ce6fb"
+    },
+    "vllm-deepseek-v019.py": {
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/model_executor/models/deepseek_v2.py",
+      "sha256": "c0f27b22e0023d42861ed4763e2a23fe305d049c6c45f6bd3ac05299d8e76da2"
+    },
+    "vllm-parallel-v019.py": {
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/config/parallel.py",
+      "sha256": "308996eda88b1cd0904dc6918d3d2140dfa4620c8a80e73705cf209d443c4478"
+    },
+    "vllm-flashmla-v019.py": {
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/v1/attention/backends/mla/flashmla_sparse.py",
+      "sha256": "cbe5cd6aab42581351a0658f7092085b39c44346216d093d90640df39e113c7c"
+    },
+    "vllm-mla-v019.py": {
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/model_executor/layers/mla.py",
+      "sha256": "4919d21219ee82502b16c645fb1d52333be47bd3c04fd60bd323de88c382fc63"
+    },
+    "vllm-registry-v019.py": {
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/model_executor/models/registry.py",
+      "sha256": "3efaece3f48dc76d8bd6bd6825830f778365f8b2976ef4d1b42de0c9d59620c3"
+    },
+    "vllm-indexer-v019.py": {
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/v1/attention/backends/mla/indexer.py",
+      "sha256": "3e207b8c4bf7a5b3206070c9dad7d6a09481366a9499119e712871b3ffdc2f68"
+    },
+    "vllm-kv-v019.py": {
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/v1/kv_cache_interface.py",
+      "sha256": "52237e1865f2bd47ef572821ca55ef2261fc96e0cee2f34dae0f1c7c4d0b15a7"
+    },
+    "vllm-kv-utils-v019.py": {
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/v1/core/kv_cache_utils.py",
+      "sha256": "3bccb51ba52e0a42422ff2f91ee55cf82ae1a71f8a839fa97281352d324da1a4"
+    },
+    "vllm-sparse-v019.py": {
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/v0.19.0/vllm/model_executor/layers/sparse_attn_indexer.py",
+      "sha256": "9dd57ee0674d073c7951bf82bbd7fe75f6f32ce225c73cc61a559cf67787323f"
+    }
+  },
+  "pp_partition_reference": "https://github.com/vllm-project/vllm/blob/v0.19.0/vllm/distributed/utils.py",
+  "sglang_sources": {
+    "version": "0.5.23",
+    "revision": "v0.5.23",
+    "contract_file": "sglang-contract.json"
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "model": "qwen3-235b-a22b",
+  "prefill": {
+    "gpu_ids": [
+      "p-node/gpu0",
+      "p-node/gpu1",
+      "p-node/gpu2",
+      "p-node/gpu3",
+      "p-node/gpu4",
+      "p-node/gpu5",
+      "p-node/gpu6",
+      "p-node/gpu7"
+    ],
+    "hardware": {
+      "name": "h100-sxm-80gb",
+      "memory_bytes": 80000000000,
+      "compute_capability": 90,
+      "platform": "cuda",
+      "gpus_per_node": 8,
+      "external_used_bytes_per_gpu": 0,
+      "utilization": 0.9,
+      "safety_margin_bytes": 1073741824,
+      "inter_node_network": true,
+      "allow_cross_node_tp": false
+    },
+    "parallelism": {
+      "tp": 8,
+      "dp": 1,
+      "ep": 8,
+      "pp": 1,
+      "num_gpus": 8,
+      "stage_layers": null
+    },
+    "runtime": {
+      "engine": "vllm",
+      "version": "0.19.0"
+    },
+    "weight_quantization": "bf16",
+    "transfer_buffer_bytes_per_gpu": 268435456
+  },
+  "decode": {
+    "gpu_ids": [
+      "d-node/gpu0",
+      "d-node/gpu1",
+      "d-node/gpu2",
+      "d-node/gpu3",
+      "d-node/gpu4",
+      "d-node/gpu5",
+      "d-node/gpu6",
+      "d-node/gpu7"
+    ],
+    "hardware": {
+      "name": "h20-96gb",
+      "memory_bytes": 96000000000,
+      "compute_capability": 90,
+      "platform": "cuda",
+      "gpus_per_node": 8,
+      "external_used_bytes_per_gpu": 0,
+      "utilization": 0.9,
+      "safety_margin_bytes": 1073741824,
+      "inter_node_network": true,
+      "allow_cross_node_tp": false
+    },
+    "parallelism": {
+      "tp": 8,
+      "dp": 1,
+      "ep": 8,
+      "pp": 1,
+      "num_gpus": 8,
+      "stage_layers": null
+    },
+    "runtime": {
+      "engine": "vllm",
+      "version": "0.19.0"
+    },
+    "weight_quantization": "bf16",
+    "transfer_buffer_bytes_per_gpu": 268435456
+  },
+  "demand": {
+    "prompt_tokens": 8192,
+    "output_tokens": 1024,
+    "prefill_concurrency_per_dp": 1,
+    "decode_concurrency_per_dp": 1,
+    "inflight_handoffs_per_dp": 2
+  }
+}

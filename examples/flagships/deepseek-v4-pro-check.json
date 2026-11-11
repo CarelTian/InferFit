@@ -1,0 +1,26 @@
+{
+  "model": "deepseek-v4-pro",
+  "hardware": {
+    "memory_bytes": 80000000000,
+    "gpus_per_node": 8
+  },
+  "runtime": {
+    "engine": "sglang",
+    "version": "0.5.23"
+  },
+  "workload": {
+    "context_tokens": 8192,
+    "concurrency_per_dp": 1,
+    "max_batch_tokens": 2048,
+    "block_size": 256
+  },
+  "weight_quantization": "native",
+  "kv_quantization": "fp8",
+  "parallelism": {
+    "tp": 8,
+    "dp": 1,
+    "ep": 8,
+    "pp": 2,
+    "num_gpus": 16
+  }
+}
