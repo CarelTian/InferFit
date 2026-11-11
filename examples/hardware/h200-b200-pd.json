@@ -1,0 +1,72 @@
+{
+  "model": "qwen3-235b-a22b",
+  "prefill": {
+    "gpu_ids": [
+      "p-node/gpu0",
+      "p-node/gpu1",
+      "p-node/gpu2",
+      "p-node/gpu3",
+      "p-node/gpu4",
+      "p-node/gpu5",
+      "p-node/gpu6",
+      "p-node/gpu7"
+    ],
+    "hardware": {
+      "catalog": "h200-141gb",
+      "gpus_per_node": 8,
+      "available_nodes": 1
+    },
+    "parallelism": {
+      "tp": 8,
+      "dp": 1,
+      "ep": 8,
+      "pp": 1,
+      "num_gpus": 8,
+      "stage_layers": null
+    },
+    "runtime": {
+      "engine": "sglang",
+      "version": "0.5.23"
+    },
+    "weight_quantization": "bf16",
+    "transfer_buffer_bytes_per_gpu": 268435456
+  },
+  "decode": {
+    "gpu_ids": [
+      "d-node/gpu0",
+      "d-node/gpu1",
+      "d-node/gpu2",
+      "d-node/gpu3",
+      "d-node/gpu4",
+      "d-node/gpu5",
+      "d-node/gpu6",
+      "d-node/gpu7"
+    ],
+    "hardware": {
+      "catalog": "b200-180gb",
+      "gpus_per_node": 8,
+      "available_nodes": 1
+    },
+    "parallelism": {
+      "tp": 8,
+      "dp": 1,
+      "ep": 8,
+      "pp": 1,
+      "num_gpus": 8,
+      "stage_layers": null
+    },
+    "runtime": {
+      "engine": "sglang",
+      "version": "0.5.23"
+    },
+    "weight_quantization": "bf16",
+    "transfer_buffer_bytes_per_gpu": 268435456
+  },
+  "demand": {
+    "prompt_tokens": 8192,
+    "output_tokens": 1024,
+    "prefill_concurrency_per_dp": 1,
+    "decode_concurrency_per_dp": 1,
+    "inflight_handoffs_per_dp": 0
+  }
+}

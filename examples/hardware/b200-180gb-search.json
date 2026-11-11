@@ -1,0 +1,30 @@
+{
+  "model": "qwen3-235b-a22b",
+  "hardware": {
+    "catalog": "b200-180gb",
+    "gpus_per_node": 8,
+    "available_nodes": 1
+  },
+  "runtime": {
+    "engine": "sglang"
+  },
+  "weight_quantization": "bf16",
+  "kv_quantization": "bf16",
+  "search": {
+    "tp_values": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "dp_values": [
+      1
+    ],
+    "pp_values": [
+      1,
+      2
+    ],
+    "max_gpus": 8,
+    "limit": 10
+  }
+}

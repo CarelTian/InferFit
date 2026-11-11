@@ -140,11 +140,58 @@ Use `RuntimeProfile.sglang()` for the maintained upstream SGLang contract.
 `RuntimeProfile()` selects the pinned vLLM contract. Backend versions are independent
 of the InferFit package version.
 
-Named hardware fixtures cover NVIDIA H800 80GB, H20 96GB, H100 SXM 80GB, and A100
-40GB/80GB. Published capacities use decimal GB and do not represent measured free
-memory. Override `memory_bytes` with actual driver-visible capacity and separately
-specify external usage and safety reserves. Arbitrary devices can be described with
-`Hardware` for conditional capacity analysis; this does not establish execution support.
+Named hardware fixtures use **per-GPU decimal GB**:
+
+| Catalog key | Capacity | CUDA compute capability |
+| --- | --- | --- |
+| `h800-80gb` / `h100-sxm-80gb` | 80 GB | 9.0 |
+| `h20-96gb` | 96 GB | 9.0 |
+| `h200-141gb` | 141 GB | 9.0 |
+| `a100-80gb` | 80 GB | 8.0 |
+| `b200-180gb` | 180 GB | 10.0 |
+| `gb200-186gb` | 186 GB | 10.0 |
+| `b300-270gb` / `b300-288gb` | 270 / 288 GB | 10.3 |
+| `gb300-279gb` / `gb300-288gb` | 279 / 288 GB | 10.3 |
+| `rtx5090-32gb` | 32 GB | 12.0 |
+
+Specifications and per-variant notes are available through `inferfit hardware` and
+[`hardware-sources.json`](src/inferfit/data/hardware-sources.json). The
+[current Blackwell Ultra datasheet](https://resources.nvidia.com/en-us-gpu-resources/blackwell-ultra-datasheet?xs=443990)
+lists 270 GB for B300 and 279 GB for GB300, while the
+[DGX B300 user guide](https://docs.nvidia.com/dgx/dgxb300-user-guide/introduction-to-dgxb300.html)
+and [GB300 launch article](https://developer.nvidia.com/blog/nvidia-blackwell-ultra-for-the-era-of-ai-reasoning/)
+also publish 288 GB specifications. These are explicit capacity presets, not inferred
+driver-visible capacities or interchangeable aliases. Choose the matching specification.
+
+GB200/GB300 entries describe **one GPU**, excluding Grace CPU memory. `num_gpus`
+counts GPUs, not Superchips or racks. The 72-GPU NVLink domain does not make the
+entire rack one process or one node. Set `gpus_per_node`, `available_nodes`, and
+cross-node TP policy for the actual worker placement. Hardware fixtures retain the
+common eight-GPU placement default; set `gpus_per_node=1` for a single-card RTX 5090.
+RTX 5090 does not inherit data-center Blackwell kernel or NVLink assumptions.
+
+H200 uses the existing SM90 contracts. Blackwell fixtures work with the maintained
+GQA/GQA-MoE memory rules; Flash-Next, GLM MLA/DSA and native V4 contracts retain
+their SM90 restrictions. Adding a catalog entry does not validate new kernels,
+collective connectivity or performance. Use `analyze()` with explicit
+`MemoryAssumptions(layout="runtime_reference", reference_engine="sglang",
+reference_version="0.5.23")` for a conditional complex-layout capacity estimate on
+an unsupported GPU; compatibility remains unsupported.
+
+Published capacities do not represent measured free memory. Override `memory_bytes`
+with actual driver-visible capacity and separately specify external usage and safety
+reserves. Arbitrary devices can be described with `Hardware` for conditional capacity
+analysis; this does not establish execution support. The A100 40 GB catalog preset
+has been removed; the A100 80 GB preset remains available.
+
+For example:
+
+```python
+hardware = load_hardware("b200-180gb", memory_bytes=179_000_000_000,
+                         gpus_per_node=8, available_nodes=1)
+```
+
+Runnable check/search/P-D examples are in [`examples/hardware`](examples/hardware).
 
 ### Model coverage
 

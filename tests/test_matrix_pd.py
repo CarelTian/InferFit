@@ -25,7 +25,7 @@ class MatrixTests(unittest.TestCase):
     def test_real_hardware_capacity_matrix_both_engines(self):
         # This is an analytical memory test, not measured device performance.
         for runtime in [RuntimeProfile(),RuntimeProfile.sglang()]:
-            for name,small,large in [('h100-sxm-80gb',4,8),('h20-96gb',4,8),('a100-80gb',4,8),('a100-40gb',8,24)]:
+            for name,small,large in [('h100-sxm-80gb',4,8),('h20-96gb',4,8),('a100-80gb',4,8)]:
                 with self.subTest(engine=runtime.engine,hardware=name):
                     h=load_hardware(name)
                     tp=4 if small==4 else 8
@@ -50,7 +50,7 @@ class MatrixTests(unittest.TestCase):
         self.assertEqual(r.status,'invalid')
 
     def test_search_hardware_matrix(self):
-        for name in ['h20-96gb','h100-sxm-80gb','a100-80gb','a100-40gb']:
+        for name in ['h20-96gb','h100-sxm-80gb','a100-80gb']:
             r=search(self.model,hardware=load_hardware(name),weight_quantization='bf16',
                      tp_values=[4,8],dp_values=[1],pp_values=[1,2,4],max_gpus=32)
             self.assertTrue(r.candidates)
@@ -114,7 +114,7 @@ class PDTests(unittest.TestCase):
 
     def test_one_pool_failure_is_pd_failure(self):
         p,d=self.pools()
-        d=replace(d,hardware=load_hardware('a100-40gb'))
+        d=replace(d,hardware=load_hardware('rtx5090-32gb'))
         r=check_pd(self.model,prefill=p,decode=d)
         self.assertTrue(r.prefill.memory_pass)
         self.assertFalse(r.decode.memory_pass)

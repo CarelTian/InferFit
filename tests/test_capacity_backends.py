@@ -32,14 +32,16 @@ def custom_hardware(gb=144):
 
 def test_named_nvidia_catalog_and_capacity_override():
     assert set(hardware_catalog()["variants"]) == {
-        "h800-80gb", "h20-96gb", "h100-sxm-80gb", "a100-80gb", "a100-40gb"}
+        "h800-80gb", "h20-96gb", "h100-sxm-80gb", "a100-80gb",
+        "h200-141gb", "b200-180gb", "gb200-186gb", "b300-270gb", "b300-288gb",
+        "gb300-279gb", "gb300-288gb", "rtx5090-32gb"}
     h = load_hardware("h100-sxm-80gb", memory_bytes=79 * 10**9)
     assert h.memory_bytes == 79 * 10**9
     assert h.memory_provenance == "caller_override"
     assert h.vendor == "nvidia"
     catalog = hardware_catalog()
     catalog["variants"].clear()
-    assert len(hardware_catalog()["variants"]) == 5
+    assert len(hardware_catalog()["variants"]) == 12
 
 
 @pytest.mark.parametrize("weight", ["bf16", "fp8"])

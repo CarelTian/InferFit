@@ -495,171 +495,6 @@
     "expected_status": "unsupported"
   },
   {
-    "name": "qwen-a100-40gb-vllm-bf16-4gpu",
-    "mode": "check",
-    "input": {
-      "model": "qwen3-235b-a22b",
-      "hardware": {
-        "name": "a100-40gb",
-        "memory_bytes": 40000000000,
-        "compute_capability": 80,
-        "platform": "cuda",
-        "gpus_per_node": 8,
-        "external_used_bytes_per_gpu": 0,
-        "utilization": 0.9,
-        "safety_margin_bytes": 1073741824,
-        "inter_node_network": true,
-        "allow_cross_node_tp": false
-      },
-      "runtime": {
-        "engine": "vllm",
-        "version": "0.19.0"
-      },
-      "parallelism": {
-        "tp": 4,
-        "dp": 1,
-        "ep": 4,
-        "pp": 1,
-        "num_gpus": 4,
-        "stage_layers": null
-      },
-      "weight_quantization": "bf16"
-    },
-    "expected_status": "fail"
-  },
-  {
-    "name": "qwen-a100-40gb-vllm-bf16-8gpu",
-    "mode": "check",
-    "input": {
-      "model": "qwen3-235b-a22b",
-      "hardware": {
-        "name": "a100-40gb",
-        "memory_bytes": 40000000000,
-        "compute_capability": 80,
-        "platform": "cuda",
-        "gpus_per_node": 8,
-        "external_used_bytes_per_gpu": 0,
-        "utilization": 0.9,
-        "safety_margin_bytes": 1073741824,
-        "inter_node_network": true,
-        "allow_cross_node_tp": false
-      },
-      "runtime": {
-        "engine": "vllm",
-        "version": "0.19.0"
-      },
-      "parallelism": {
-        "tp": 8,
-        "dp": 1,
-        "ep": 8,
-        "pp": 1,
-        "num_gpus": 8,
-        "stage_layers": null
-      },
-      "weight_quantization": "bf16"
-    },
-    "expected_status": "fail"
-  },
-  {
-    "name": "qwen-a100-40gb-vllm-bf16-16gpu",
-    "mode": "check",
-    "input": {
-      "model": "qwen3-235b-a22b",
-      "hardware": {
-        "name": "a100-40gb",
-        "memory_bytes": 40000000000,
-        "compute_capability": 80,
-        "platform": "cuda",
-        "gpus_per_node": 8,
-        "external_used_bytes_per_gpu": 0,
-        "utilization": 0.9,
-        "safety_margin_bytes": 1073741824,
-        "inter_node_network": true,
-        "allow_cross_node_tp": false
-      },
-      "runtime": {
-        "engine": "vllm",
-        "version": "0.19.0"
-      },
-      "parallelism": {
-        "tp": 8,
-        "dp": 1,
-        "ep": 8,
-        "pp": 2,
-        "num_gpus": 16,
-        "stage_layers": null
-      },
-      "weight_quantization": "bf16"
-    },
-    "expected_status": "fail"
-  },
-  {
-    "name": "qwen-a100-40gb-vllm-bf16-24gpu",
-    "mode": "check",
-    "input": {
-      "model": "qwen3-235b-a22b",
-      "hardware": {
-        "name": "a100-40gb",
-        "memory_bytes": 40000000000,
-        "compute_capability": 80,
-        "platform": "cuda",
-        "gpus_per_node": 8,
-        "external_used_bytes_per_gpu": 0,
-        "utilization": 0.9,
-        "safety_margin_bytes": 1073741824,
-        "inter_node_network": true,
-        "allow_cross_node_tp": false
-      },
-      "runtime": {
-        "engine": "vllm",
-        "version": "0.19.0"
-      },
-      "parallelism": {
-        "tp": 8,
-        "dp": 1,
-        "ep": 8,
-        "pp": 3,
-        "num_gpus": 24,
-        "stage_layers": null
-      },
-      "weight_quantization": "bf16"
-    },
-    "expected_status": "pass"
-  },
-  {
-    "name": "qwen-a100-40gb-vllm-fp8",
-    "mode": "check",
-    "input": {
-      "model": "qwen3-235b-a22b",
-      "hardware": {
-        "name": "a100-40gb",
-        "memory_bytes": 40000000000,
-        "compute_capability": 80,
-        "platform": "cuda",
-        "gpus_per_node": 8,
-        "external_used_bytes_per_gpu": 0,
-        "utilization": 0.9,
-        "safety_margin_bytes": 1073741824,
-        "inter_node_network": true,
-        "allow_cross_node_tp": false
-      },
-      "runtime": {
-        "engine": "vllm",
-        "version": "0.19.0"
-      },
-      "parallelism": {
-        "tp": 4,
-        "dp": 1,
-        "ep": 4,
-        "pp": 1,
-        "num_gpus": 4,
-        "stage_layers": null
-      },
-      "weight_quantization": "fp8"
-    },
-    "expected_status": "unsupported"
-  },
-  {
     "name": "deepseek-v41-flash-vllm-unsupported",
     "mode": "check",
     "input": {
@@ -1080,16 +915,8 @@
           "d-node/gpu7"
         ],
         "hardware": {
-          "name": "a100-40gb",
-          "memory_bytes": 40000000000,
-          "compute_capability": 80,
-          "platform": "cuda",
-          "gpus_per_node": 8,
-          "external_used_bytes_per_gpu": 0,
-          "utilization": 0.9,
-          "safety_margin_bytes": 1073741824,
-          "inter_node_network": true,
-          "allow_cross_node_tp": false
+          "catalog": "rtx5090-32gb",
+          "gpus_per_node": 8
         },
         "parallelism": {
           "tp": 8,
@@ -1774,171 +1601,6 @@
     "expected_status": "unsupported"
   },
   {
-    "name": "qwen-a100-40gb-sglang-bf16-4gpu",
-    "mode": "check",
-    "input": {
-      "model": "qwen3-235b-a22b",
-      "hardware": {
-        "name": "a100-40gb",
-        "memory_bytes": 40000000000,
-        "compute_capability": 80,
-        "platform": "cuda",
-        "gpus_per_node": 8,
-        "external_used_bytes_per_gpu": 0,
-        "utilization": 0.9,
-        "safety_margin_bytes": 1073741824,
-        "inter_node_network": true,
-        "allow_cross_node_tp": false
-      },
-      "runtime": {
-        "engine": "sglang",
-        "version": "0.5.23"
-      },
-      "parallelism": {
-        "tp": 4,
-        "dp": 1,
-        "ep": 4,
-        "pp": 1,
-        "num_gpus": 4,
-        "stage_layers": null
-      },
-      "weight_quantization": "bf16"
-    },
-    "expected_status": "fail"
-  },
-  {
-    "name": "qwen-a100-40gb-sglang-bf16-8gpu",
-    "mode": "check",
-    "input": {
-      "model": "qwen3-235b-a22b",
-      "hardware": {
-        "name": "a100-40gb",
-        "memory_bytes": 40000000000,
-        "compute_capability": 80,
-        "platform": "cuda",
-        "gpus_per_node": 8,
-        "external_used_bytes_per_gpu": 0,
-        "utilization": 0.9,
-        "safety_margin_bytes": 1073741824,
-        "inter_node_network": true,
-        "allow_cross_node_tp": false
-      },
-      "runtime": {
-        "engine": "sglang",
-        "version": "0.5.23"
-      },
-      "parallelism": {
-        "tp": 8,
-        "dp": 1,
-        "ep": 8,
-        "pp": 1,
-        "num_gpus": 8,
-        "stage_layers": null
-      },
-      "weight_quantization": "bf16"
-    },
-    "expected_status": "fail"
-  },
-  {
-    "name": "qwen-a100-40gb-sglang-bf16-16gpu",
-    "mode": "check",
-    "input": {
-      "model": "qwen3-235b-a22b",
-      "hardware": {
-        "name": "a100-40gb",
-        "memory_bytes": 40000000000,
-        "compute_capability": 80,
-        "platform": "cuda",
-        "gpus_per_node": 8,
-        "external_used_bytes_per_gpu": 0,
-        "utilization": 0.9,
-        "safety_margin_bytes": 1073741824,
-        "inter_node_network": true,
-        "allow_cross_node_tp": false
-      },
-      "runtime": {
-        "engine": "sglang",
-        "version": "0.5.23"
-      },
-      "parallelism": {
-        "tp": 8,
-        "dp": 1,
-        "ep": 8,
-        "pp": 2,
-        "num_gpus": 16,
-        "stage_layers": null
-      },
-      "weight_quantization": "bf16"
-    },
-    "expected_status": "fail"
-  },
-  {
-    "name": "qwen-a100-40gb-sglang-bf16-24gpu",
-    "mode": "check",
-    "input": {
-      "model": "qwen3-235b-a22b",
-      "hardware": {
-        "name": "a100-40gb",
-        "memory_bytes": 40000000000,
-        "compute_capability": 80,
-        "platform": "cuda",
-        "gpus_per_node": 8,
-        "external_used_bytes_per_gpu": 0,
-        "utilization": 0.9,
-        "safety_margin_bytes": 1073741824,
-        "inter_node_network": true,
-        "allow_cross_node_tp": false
-      },
-      "runtime": {
-        "engine": "sglang",
-        "version": "0.5.23"
-      },
-      "parallelism": {
-        "tp": 8,
-        "dp": 1,
-        "ep": 8,
-        "pp": 3,
-        "num_gpus": 24,
-        "stage_layers": null
-      },
-      "weight_quantization": "bf16"
-    },
-    "expected_status": "pass"
-  },
-  {
-    "name": "qwen-a100-40gb-sglang-fp8",
-    "mode": "check",
-    "input": {
-      "model": "qwen3-235b-a22b",
-      "hardware": {
-        "name": "a100-40gb",
-        "memory_bytes": 40000000000,
-        "compute_capability": 80,
-        "platform": "cuda",
-        "gpus_per_node": 8,
-        "external_used_bytes_per_gpu": 0,
-        "utilization": 0.9,
-        "safety_margin_bytes": 1073741824,
-        "inter_node_network": true,
-        "allow_cross_node_tp": false
-      },
-      "runtime": {
-        "engine": "sglang",
-        "version": "0.5.23"
-      },
-      "parallelism": {
-        "tp": 4,
-        "dp": 1,
-        "ep": 4,
-        "pp": 1,
-        "num_gpus": 4,
-        "stage_layers": null
-      },
-      "weight_quantization": "fp8"
-    },
-    "expected_status": "unsupported"
-  },
-  {
     "name": "deepseek-v41-flash-sglang-unsupported",
     "mode": "check",
     "input": {
@@ -2359,16 +2021,8 @@
           "d-node/gpu7"
         ],
         "hardware": {
-          "name": "a100-40gb",
-          "memory_bytes": 40000000000,
-          "compute_capability": 80,
-          "platform": "cuda",
-          "gpus_per_node": 8,
-          "external_used_bytes_per_gpu": 0,
-          "utilization": 0.9,
-          "safety_margin_bytes": 1073741824,
-          "inter_node_network": true,
-          "allow_cross_node_tp": false
+          "catalog": "rtx5090-32gb",
+          "gpus_per_node": 8
         },
         "parallelism": {
           "tp": 8,
@@ -2556,5 +2210,372 @@
       }
     },
     "expected_status": "unsupported"
+  },
+  {
+    "name": "qwen-h200-141gb-sglang-bf16-4gpu",
+    "mode": "check",
+    "input": {
+      "model": "qwen3-235b-a22b",
+      "hardware": {
+        "catalog": "h200-141gb",
+        "gpus_per_node": 4,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang"
+      },
+      "parallelism": {
+        "tp": 4,
+        "dp": 1,
+        "ep": 4,
+        "pp": 1,
+        "num_gpus": 4
+      },
+      "weight_quantization": "bf16",
+      "kv_quantization": "bf16"
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "qwen-b200-180gb-sglang-bf16-4gpu",
+    "mode": "check",
+    "input": {
+      "model": "qwen3-235b-a22b",
+      "hardware": {
+        "catalog": "b200-180gb",
+        "gpus_per_node": 4,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang"
+      },
+      "parallelism": {
+        "tp": 4,
+        "dp": 1,
+        "ep": 4,
+        "pp": 1,
+        "num_gpus": 4
+      },
+      "weight_quantization": "bf16",
+      "kv_quantization": "bf16"
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "qwen-gb200-186gb-sglang-bf16-4gpu",
+    "mode": "check",
+    "input": {
+      "model": "qwen3-235b-a22b",
+      "hardware": {
+        "catalog": "gb200-186gb",
+        "gpus_per_node": 4,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang"
+      },
+      "parallelism": {
+        "tp": 4,
+        "dp": 1,
+        "ep": 4,
+        "pp": 1,
+        "num_gpus": 4
+      },
+      "weight_quantization": "bf16",
+      "kv_quantization": "bf16"
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "qwen-b300-270gb-sglang-bf16-4gpu",
+    "mode": "check",
+    "input": {
+      "model": "qwen3-235b-a22b",
+      "hardware": {
+        "catalog": "b300-270gb",
+        "gpus_per_node": 4,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang"
+      },
+      "parallelism": {
+        "tp": 4,
+        "dp": 1,
+        "ep": 4,
+        "pp": 1,
+        "num_gpus": 4
+      },
+      "weight_quantization": "bf16",
+      "kv_quantization": "bf16"
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "qwen-b300-288gb-sglang-bf16-4gpu",
+    "mode": "check",
+    "input": {
+      "model": "qwen3-235b-a22b",
+      "hardware": {
+        "catalog": "b300-288gb",
+        "gpus_per_node": 4,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang"
+      },
+      "parallelism": {
+        "tp": 4,
+        "dp": 1,
+        "ep": 4,
+        "pp": 1,
+        "num_gpus": 4
+      },
+      "weight_quantization": "bf16",
+      "kv_quantization": "bf16"
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "qwen-gb300-279gb-sglang-bf16-4gpu",
+    "mode": "check",
+    "input": {
+      "model": "qwen3-235b-a22b",
+      "hardware": {
+        "catalog": "gb300-279gb",
+        "gpus_per_node": 4,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang"
+      },
+      "parallelism": {
+        "tp": 4,
+        "dp": 1,
+        "ep": 4,
+        "pp": 1,
+        "num_gpus": 4
+      },
+      "weight_quantization": "bf16",
+      "kv_quantization": "bf16"
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "qwen-gb300-288gb-sglang-bf16-4gpu",
+    "mode": "check",
+    "input": {
+      "model": "qwen3-235b-a22b",
+      "hardware": {
+        "catalog": "gb300-288gb",
+        "gpus_per_node": 4,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang"
+      },
+      "parallelism": {
+        "tp": 4,
+        "dp": 1,
+        "ep": 4,
+        "pp": 1,
+        "num_gpus": 4
+      },
+      "weight_quantization": "bf16",
+      "kv_quantization": "bf16"
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "gqa-rtx5090-sglang-bf16-fp8-kv",
+    "mode": "check",
+    "input": {
+      "model": {
+        "id": "example-gqa-8b",
+        "config": {
+          "model_type": "llama",
+          "hidden_size": 4096,
+          "intermediate_size": 14336,
+          "num_hidden_layers": 32,
+          "num_attention_heads": 32,
+          "num_key_value_heads": 8,
+          "head_dim": 128,
+          "vocab_size": 128256,
+          "max_position_embeddings": 32768,
+          "tie_word_embeddings": false
+        }
+      },
+      "hardware": {
+        "catalog": "rtx5090-32gb",
+        "gpus_per_node": 1,
+        "available_nodes": 1,
+        "inter_node_network": false
+      },
+      "runtime": {
+        "engine": "sglang"
+      },
+      "parallelism": {
+        "tp": 1,
+        "dp": 1,
+        "ep": 1,
+        "pp": 1,
+        "num_gpus": 1
+      },
+      "weight_quantization": "bf16",
+      "kv_quantization": "fp8"
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "pd-qwen-h200-b200-sglang",
+    "mode": "pd-check",
+    "input": {
+      "model": "qwen3-235b-a22b",
+      "prefill": {
+        "gpu_ids": [
+          "p-node/gpu0",
+          "p-node/gpu1",
+          "p-node/gpu2",
+          "p-node/gpu3",
+          "p-node/gpu4",
+          "p-node/gpu5",
+          "p-node/gpu6",
+          "p-node/gpu7"
+        ],
+        "hardware": {
+          "catalog": "h200-141gb",
+          "gpus_per_node": 8,
+          "available_nodes": 1
+        },
+        "parallelism": {
+          "tp": 8,
+          "dp": 1,
+          "ep": 8,
+          "pp": 1,
+          "num_gpus": 8,
+          "stage_layers": null
+        },
+        "runtime": {
+          "engine": "sglang",
+          "version": "0.5.23"
+        },
+        "weight_quantization": "bf16",
+        "transfer_buffer_bytes_per_gpu": 268435456
+      },
+      "decode": {
+        "gpu_ids": [
+          "d-node/gpu0",
+          "d-node/gpu1",
+          "d-node/gpu2",
+          "d-node/gpu3",
+          "d-node/gpu4",
+          "d-node/gpu5",
+          "d-node/gpu6",
+          "d-node/gpu7"
+        ],
+        "hardware": {
+          "catalog": "b200-180gb",
+          "gpus_per_node": 8,
+          "available_nodes": 1
+        },
+        "parallelism": {
+          "tp": 8,
+          "dp": 1,
+          "ep": 8,
+          "pp": 1,
+          "num_gpus": 8,
+          "stage_layers": null
+        },
+        "runtime": {
+          "engine": "sglang",
+          "version": "0.5.23"
+        },
+        "weight_quantization": "bf16",
+        "transfer_buffer_bytes_per_gpu": 268435456
+      },
+      "demand": {
+        "prompt_tokens": 8192,
+        "output_tokens": 1024,
+        "prefill_concurrency_per_dp": 1,
+        "decode_concurrency_per_dp": 1,
+        "inflight_handoffs_per_dp": 0
+      }
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "qwen-b300-270gb-sglang-bf16-2gpu",
+    "mode": "check",
+    "input": {
+      "model": "qwen3-235b-a22b",
+      "hardware": {
+        "catalog": "b300-270gb",
+        "gpus_per_node": 4,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang"
+      },
+      "parallelism": {
+        "tp": 2,
+        "dp": 1,
+        "ep": 2,
+        "pp": 1,
+        "num_gpus": 2
+      },
+      "weight_quantization": "bf16",
+      "kv_quantization": "bf16"
+    },
+    "expected_status": "fail"
+  },
+  {
+    "name": "qwen-b300-288gb-sglang-bf16-2gpu",
+    "mode": "check",
+    "input": {
+      "model": "qwen3-235b-a22b",
+      "hardware": {
+        "catalog": "b300-288gb",
+        "gpus_per_node": 4,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang"
+      },
+      "parallelism": {
+        "tp": 2,
+        "dp": 1,
+        "ep": 2,
+        "pp": 1,
+        "num_gpus": 2
+      },
+      "weight_quantization": "bf16",
+      "kv_quantization": "bf16"
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "qwen-gb300-279gb-sglang-bf16-2gpu",
+    "mode": "check",
+    "input": {
+      "model": "qwen3-235b-a22b",
+      "hardware": {
+        "catalog": "gb300-279gb",
+        "gpus_per_node": 4,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang"
+      },
+      "parallelism": {
+        "tp": 2,
+        "dp": 1,
+        "ep": 2,
+        "pp": 1,
+        "num_gpus": 2
+      },
+      "weight_quantization": "bf16",
+      "kv_quantization": "bf16"
+    },
+    "expected_status": "pass"
   }
 ]

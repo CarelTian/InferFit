@@ -1,10 +1,28 @@
 {
-  "retrieved_at": "2026-11-05",
-  "capacity_policy": "NVIDIA fixtures use nominal decimal GB, not measured free or usable memory. Explicit memory_bytes overrides the published capacity.",
+  "retrieved_at": "2026-11-11",
+  "capacity_policy": "All capacities are per GPU in nominal decimal GB, not measured free or usable memory. Explicit memory_bytes overrides the published capacity. GB200/GB300 exclude Grace CPU memory and never pool the memory of a Superchip or NVL72 rack. B300/GB300 capacity presets retain differing published specifications explicitly; they are not assertions of driver-visible capacity.",
+  "compute_capability_source": "https://developer.nvidia.com/cuda/gpus",
   "sources": {
     "h100-sxm-80gb": "https://www.nvidia.com/en-us/data-center/h100/",
     "h20-96gb": "https://nvidia.github.io/cosmos-framework/skills/cookbooks/cosmos3/nim/support-matrix/",
-    "a100-40gb": "https://images.nvidia.com/data-center/a100/a100-datasheet.pdf",
+    "h200-141gb": "https://www.nvidia.com/en-us/data-center/h200/",
+    "b200-180gb": "https://docs.nvidia.com/datacenter/tesla/mig-user-guide/supported-gpus.html",
+    "gb200-186gb": "https://docs.nvidia.com/datacenter/tesla/mig-user-guide/supported-gpus.html",
+    "b300-270gb": "https://dam-cdn.nvd.orangelogic.com/AssetLink/1k0p832eq8r5ca0u5383ie5o4tp3bst1.pdf",
+    "b300-288gb": "https://docs.nvidia.com/dgx/dgxb300-user-guide/introduction-to-dgxb300.html",
+    "gb300-279gb": "https://dam-cdn.nvd.orangelogic.com/AssetLink/1k0p832eq8r5ca0u5383ie5o4tp3bst1.pdf",
+    "gb300-288gb": "https://developer.nvidia.com/blog/nvidia-blackwell-ultra-for-the-era-of-ai-reasoning/",
+    "rtx5090-32gb": "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/",
     "a100-80gb": "https://images.nvidia.com/data-center/a100/a100-datasheet.pdf"
+  },
+  "variant_notes": {
+    "h200-141gb": "Hopper SM90; 141 GB HBM3e per GPU. The existing Hopper model contracts apply with their usual restrictions.",
+    "b200-180gb": "Data-center Blackwell SM100; 180 GB HBM3e per GPU, not a 192 GB preset.",
+    "gb200-186gb": "Data-center Blackwell SM100; one 186 GB GPU in a GB200 system. A Superchip has two GPUs; rank and num_gpus count GPUs, not Superchips.",
+    "b300-270gb": "Blackwell Ultra SM103; 270 GB per HGX B300 GPU in the current Blackwell Ultra datasheet (page 5). Separate from the 288 GB specification; no driver-visible capacity is inferred.",
+    "b300-288gb": "Blackwell Ultra SM103; 288 GB per GPU in the DGX B300 user guide. The current Blackwell Ultra datasheet instead lists 270 GB for HGX B300; choose the matching specification or override actual memory_bytes.",
+    "gb300-279gb": "Blackwell Ultra SM103; 279 GB per NVL72 GPU in the current Blackwell Ultra datasheet (page 5). Excludes Grace memory; not the DGX Station variant.",
+    "gb300-288gb": "Blackwell Ultra SM103; up to 288 GB per NVL72 GPU in NVIDIA's launch article. The current datasheet lists 279 GB; choose the matching specification or override actual memory_bytes. Excludes Grace memory; not DGX Station.",
+    "rtx5090-32gb": "Consumer Blackwell SM120, not SM100/SM103; 32 GB GDDR7. No NVLink or multi-GPU P2P capability is inferred. Set gpus_per_node and network policy for the actual installation."
   }
 }
