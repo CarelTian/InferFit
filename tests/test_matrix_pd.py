@@ -7,7 +7,7 @@ from inferfit import *
 
 class MatrixTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls): cls.model=load_qwen3_235b()
+    def setUpClass(cls): cls.model=load_model("qwen3-235b-a22b")
 
     def test_official_qwen_weight_inventory(self):
         source=self.model.provenance['source']
@@ -54,7 +54,7 @@ class MatrixTests(unittest.TestCase):
             r=search(self.model,hardware=load_hardware(name),weight_quantization='bf16',
                      tp_values=[4,8],dp_values=[1],pp_values=[1,2,4],max_gpus=32)
             self.assertTrue(r.candidates)
-            self.assertTrue(all(x.memory_pass for x in r.candidates))
+            self.assertTrue(all(x.static_candidate for x in r.candidates))
 
     def test_unknown_platform_has_no_execution_backend(self):
         h=Hardware(name='custom-device', platform='custom', compute_capability=None, memory_bytes=96*GiB)
@@ -72,7 +72,7 @@ class MatrixTests(unittest.TestCase):
 
 class PDTests(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):cls.model=load_qwen3_235b()
+    def setUpClass(cls):cls.model=load_model("qwen3-235b-a22b")
     def pools(self,engine='vllm'):
         r=RuntimeProfile.sglang() if engine=='sglang' else RuntimeProfile()
         p=Parallelism(8,1,8,1,8)
@@ -136,7 +136,7 @@ class PDTests(unittest.TestCase):
         plan=Parallelism(8,1,8,2,16)
         p=replace(p,gpu_ids=tuple(f'p/gpu{i}' for i in range(16)),parallelism=plan,weight_quantization='fp8')
         d=replace(d,gpu_ids=tuple(f'd/gpu{i}' for i in range(16)),parallelism=plan,weight_quantization='fp8')
-        r=check_pd(load_glm51(),prefill=p,decode=d)
+        r=check_pd(load_model("glm-5.1"),prefill=p,decode=d)
         self.assertTrue(r.memory_pass)
         self.assertEqual(r.summary['num_gpus_total'],32)
         self.assertEqual(r.summary['handoff_logical_payload_bytes_per_request'],8192*100152)

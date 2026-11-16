@@ -13,7 +13,7 @@ from pathlib import Path
 
 from inferfit import (GiB, Hardware, Parallelism, RuntimeProfile, Workload,
                                 check, from_config, glm_profile, kv_per_token,
-                                load_glm51, logical_weight_bytes, optimize_pipeline, search)
+                                load_model, logical_weight_bytes, optimize_pipeline, search)
 from inferfit.cli import evaluate_document
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,7 +31,7 @@ def small_model(**updates):
 class OfficialMetadataTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.model = load_glm51()
+        cls.model = load_model("glm-5.1")
 
     def test_architecture_inventory_matches_every_official_template(self):
         full = glm_profile(self.model.config, include_mtp=True)
@@ -84,7 +84,7 @@ class OfficialMetadataTests(unittest.TestCase):
 class CapacityTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.model = load_glm51()
+        cls.model = load_model("glm-5.1")
         cls.p16 = Parallelism(tp=8, dp=1, ep=8, pp=2, num_gpus=16)
 
     def test_h800_eight_cards_cannot_even_hold_fp8_weights(self):
@@ -223,15 +223,15 @@ class GenericAndSearchTests(unittest.TestCase):
             small_model(sliding_window=4096)
 
     def test_search_returns_only_valid_conditional_passes(self):
-        result = search(load_glm51(), gpu_counts=[8, 16, 24, 32], max_gpus=32, limit=10)
+        result = search(load_model("glm-5.1"), gpu_counts=[8, 16, 24, 32], max_gpus=32, limit=10)
         self.assertEqual(result.minimum_num_gpus, 16)
-        self.assertGreater(result.counts["fail"], 0)
-        self.assertTrue(all(r.memory_pass and r.status == "pass" for r in result.candidates))
-        self.assertEqual(result.evaluated, sum(result.counts.values()))
+        self.assertGreater(result.capacity_counts["fail"], 0)
+        self.assertTrue(all(r.static_candidate for r in result.candidates))
+        self.assertEqual(result.evaluated, sum(result.capacity_counts.values()))
         self.assertEqual([r.parallelism.num_gpus for r in result.candidates], sorted(r.parallelism.num_gpus for r in result.candidates))
 
     def test_pipeline_optimizer_finds_twelve_card_candidate(self):
-        model = load_glm51()
+        model = load_model("glm-5.1")
         plan = Parallelism(4, 1, 4, 3, 12)
         self.assertFalse(check(model, parallelism=plan).memory_pass)
         optimized = optimize_pipeline(model, parallelism=plan)
@@ -254,24 +254,24 @@ class GenericAndSearchTests(unittest.TestCase):
         self.assertEqual(max(rank.peak_bytes for rank in optimized.ranks), best)
 
     def test_sequence_parallel_shared_experts_are_replicated(self):
-        model = load_glm51()
+        model = load_model("glm-5.1")
         no_ep = check(model, parallelism=Parallelism(8, 2, 1, 1, 16))
         ep = check(model, parallelism=Parallelism(8, 2, 16, 1, 16))
         # 75 MoE layers: saved routed shards minus newly replicated shared MLPs.
         self.assertEqual(no_ep.ranks[0].weight_bytes - ep.ranks[0].weight_bytes, 42_831_676_800)
 
     def test_rank_coordinates_and_boolean_validation(self):
-        result = check(load_glm51(), parallelism=Parallelism(8, 2, 16, 2, 32))
+        result = check(load_model("glm-5.1"), parallelism=Parallelism(8, 2, 16, 2, 32))
         self.assertEqual((result.ranks[8].dp_rank, result.ranks[8].pp_rank), (0, 1))
         self.assertEqual((result.ranks[16].dp_rank, result.ranks[16].pp_rank), (1, 0))
-        self.assertEqual(check(load_glm51(), hardware=Hardware(inter_node_network="false")).status, "invalid")
+        self.assertEqual(check(load_model("glm-5.1"), hardware=Hardware(inter_node_network="false")).status, "invalid")
 
     def test_search_no_candidate_and_bad_degrees(self):
-        result = search(load_glm51(), max_gpus=8)
+        result = search(load_model("glm-5.1"), max_gpus=8)
         self.assertEqual(result.minimum_num_gpus, None)
         self.assertEqual(result.candidates, [])
         with self.assertRaises(ValueError):
-            search(load_glm51(), tp_values=[0])
+            search(load_model("glm-5.1"), tp_values=[0])
 
     def test_json_examples_and_reject_unknown_options(self):
         doc = json.loads((ROOT / "examples/h800-glm51-check.json").read_text())

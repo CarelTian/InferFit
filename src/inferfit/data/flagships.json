@@ -104,5 +104,33 @@
     "metadata_file": "deepseek-v4-pro-metadata.json",
     "metadata_sha256": "d068d49d813c9c1d3a2d581fe2b35728fc27c26183cf1fdb31eca41394885dba",
     "scope": "SGLang 0.5.23 Hopper SM90; DP=1; EP=TP; eager base model; no offload/MTP/PD; PP supported; native mixed FP8/FP4 weights; FP8 V4 paged cache, page=256, SWA/full=1, offline FP32 compressor states"
+  },
+  {
+    "alias": "glm-5.1",
+    "id": "zai-org/GLM-5.1",
+    "config_file": "glm51-config.json",
+    "config_sha256": "726e45e28d1be1636a5834048a4101a2cfe384819ad2ebe08d41f6fe04656526",
+    "revision": "26e1bd6e011feb778d25ae34b09b07074139d92d",
+    "revision_kind": "hf_commit",
+    "source_url": "https://huggingface.co/zai-org/GLM-5.1/resolve/26e1bd6e011feb778d25ae34b09b07074139d92d/config.json",
+    "checked_at": "2026-11-02",
+    "support": "analytical",
+    "blockers": [],
+    "source_file": "sources.json",
+    "source_sha256": "d7d38b8f1c8d7773ad894b2b4ebc27fb94273f3a9108280b3c7279261a595184"
+  },
+  {
+    "alias": "qwen3-235b-a22b",
+    "id": "Qwen/Qwen3-235B-A22B",
+    "config_file": "qwen3-235b-config.json",
+    "config_sha256": "e1fa82eb28205df04a1813dd4245b829f2580db5896dfcd7c6b604679909878c",
+    "revision": "8efa61729e24bd65b1d152b5ab5409052aa80e65",
+    "revision_kind": "hf_commit",
+    "source_url": "https://huggingface.co/Qwen/Qwen3-235B-A22B/resolve/8efa61729e24bd65b1d152b5ab5409052aa80e65/config.json",
+    "checked_at": "2026-11-05",
+    "support": "analytical",
+    "blockers": [],
+    "source_file": "qwen3-235b-source.json",
+    "source_sha256": "38f1bd09d5e86f49ef46507c088ce7d1fae968982161cf62ad3cf4a0e363d24f"
   }
 ]

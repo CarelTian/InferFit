@@ -1,7 +1,7 @@
 """Reproducible CPU planner benchmarks; model loading is outside the timers.
 
 PYTHONPATH=src python tools/benchmark_partition.py --iterations 7
-Use --case to compare only models available in an older source checkout.
+Use --case to select the workloads to benchmark.
 """
 from __future__ import annotations
 
@@ -13,15 +13,15 @@ import platform
 import statistics
 import time
 
-from inferfit import (__version__, Parallelism, RuntimeProfile, Workload, load_glm51,
-                      load_model, optimize_pipeline, search)
+from inferfit import (__version__, Parallelism, RuntimeProfile, Workload, load_model,
+                      optimize_pipeline, search)
 
 CASES = ("glm-sglang-pp8", "glm-vllm-pp8", "qwen-hybrid-pp8", "v4-pro-pp4", "glm-search")
 
 
 def prepare(name):
     if name.startswith("glm"):
-        model = load_glm51()
+        model = load_model("glm-5.1")
         runtime = RuntimeProfile() if name == "glm-vllm-pp8" else RuntimeProfile.sglang()
         options = dict(runtime=runtime, weight_quantization="fp8", kv_quantization="bf16")
         if name == "glm-search":
@@ -42,12 +42,7 @@ def prepare(name):
 
 def result_summary(result):
     if hasattr(result, "candidates"):
-        return dict(evaluated=result.evaluated, counts=result.counts,
-                    minimum_num_gpus=result.minimum_num_gpus,
-                    candidates=[dict(parallelism=c.to_dict()["parallelism"],
-                        stage_layers=c.summary["stage_layers"],
-                        minimum_headroom_bytes=c.summary["minimum_headroom_bytes"])
-                        for c in result.candidates])
+        return result.to_dict()
     return dict(status=result.status, stage_layers=result.summary["stage_layers"],
                 peak_bytes=max(rank.peak_bytes for rank in result.ranks),
                 minimum_headroom_bytes=result.summary["minimum_headroom_bytes"])

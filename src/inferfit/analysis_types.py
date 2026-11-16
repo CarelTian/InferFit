@@ -52,18 +52,38 @@ class AnalysisResult:
 
 
 @dataclass
+class CapacitySummary:
+    status: str
+    basis: str
+    summary: dict[str, int]
+
+
+@dataclass
+class CompatibilitySummary:
+    status: str
+    backend_id: str | None
+
+
+@dataclass
+class PlanSearchCandidate:
+    parallelism: Parallelism
+    capacity: CapacitySummary
+    compatibility: CompatibilitySummary
+    static_candidate: bool
+
+
+@dataclass
 class PlanSearchResult:
-    candidates: list[AnalysisResult]
+    candidates: list[PlanSearchCandidate]
     evaluated: int
     capacity_counts: dict[str, int]
     compatibility_counts: dict[str, int]
     minimum_num_gpus: int | None
     policy: str
-    rejection_reasons: dict[str, int]
-    search_space: dict[str, Any]
+    top_rejection_reasons: dict[str, int]
+    passing_candidates_total: int
+    deployment_verified: bool = False
     note: str = "Minimum within enumerated degrees and explicit memory assumptions; no execution verification."
 
     def to_dict(self) -> dict[str, Any]:
-        result = asdict(self)
-        result["candidates"] = [x.to_dict() for x in self.candidates]
-        return result
+        return asdict(self)

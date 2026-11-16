@@ -7,7 +7,7 @@ and serving peaks, and memory headroom. It checks supported runtime constraints
 and searches tensor, expert, data, and pipeline parallel configurations without
 loading model weights or installing an inference framework.
 
-**Version:** 0.1.0 · **Python:** 3.11+ · **License:** MIT
+**Version:** 0.1.1 · **Python:** 3.11+ · **License:** MIT
 
 ## Features
 
@@ -45,10 +45,10 @@ Check GLM-5.1 with a fixed 16-GPU configuration:
 
 ```python
 from inferfit import (
-    Parallelism, RuntimeProfile, Workload, check, load_glm51, load_hardware,
+    Parallelism, RuntimeProfile, Workload, check, load_model, load_hardware,
 )
 
-model = load_glm51()
+model = load_model("glm-5.1")
 options = dict(
     hardware=load_hardware("h800-80gb", available_nodes=2),
     runtime=RuntimeProfile.sglang(),
@@ -69,9 +69,9 @@ print(result.summary.get("minimum_headroom_bytes"))
 Search explicitly allowed configurations:
 
 ```python
-from inferfit import search_plans
+from inferfit import search
 
-plans = search_plans(
+plans = search(
     model,
     tp_values=[1, 2, 4, 8],
     dp_values=[1],
@@ -81,7 +81,7 @@ plans = search_plans(
     **options,
 )
 print(plans.minimum_num_gpus)
-print(plans.rejection_reasons)
+print(plans.top_rejection_reasons)
 ```
 
 These examples assume a connected cluster with sufficient available nodes. They
@@ -93,13 +93,12 @@ perform analytical sizing and static checks; they do not launch distributed work
 | --- | --- |
 | `check()` | Strict preflight for one configuration under a maintained backend contract. |
 | `analyze()` | Separate capacity and compatibility results, with conditional capacity fallback. |
-| `search()` | Search configurations that pass strict checks. |
-| `search_plans()` | Search with `static` or `capacity` filtering and rejection diagnostics. |
+| `search()` | Find and rank layouts with `static` or `capacity` filtering and rejection diagnostics. |
 | `optimize_pipeline()` | Optimize contiguous PP layer partitions for fixed parallel degrees. |
 | `check_pd()` | Check specified prefill and decode pools and their handoff memory requirements. |
 | `logical_weight_bytes()` | Count unpartitioned weight inventory bytes, including quantization scales. |
 | `kv_per_token()` | Report token-cache geometry; exact allocation may include pages and fixed state. |
-| `load_model()` / `from_config()` | Load a bundled model snapshot or a supported config. |
+| `load_model()` / `from_config()` | Load a bundled snapshot by catalog alias or full model ID, or convert a supported config. |
 | `hardware_catalog()` / `backend_catalog()` | Inspect named hardware fixtures and maintained backend contracts. |
 
 ### Capacity versus compatibility
@@ -116,7 +115,7 @@ layouts require an explicit pinned reference layout through `MemoryAssumptions`.
 Missing layout information produces `unknown` and `missing_data`, not a zero-byte
 allocation. Known unsupported execution features remain unsupported after fallback.
 
-`search_plans(policy="static")`, the default, requires both capacity and compatibility
+`search(policy="static")`, the default, requires both capacity and compatibility
 to pass. `policy="capacity"` keeps capacity-passing candidates while retaining their
 compatibility status. This distinction does not change deployment verification.
 
@@ -171,9 +170,8 @@ common eight-GPU placement default; set `gpus_per_node=1` for a single-card RTX 
 RTX 5090 does not inherit data-center Blackwell kernel or NVLink assumptions.
 
 H200 uses the existing SM90 contracts. Blackwell fixtures work with the maintained
-GQA/GQA-MoE memory rules; Flash-Next, GLM MLA/DSA and native V4 contracts retain
-their SM90 restrictions. Adding a catalog entry does not validate new kernels,
-collective connectivity or performance. Use `analyze()` with explicit
+GQA/GQA-MoE rules and the SGLang GLM-5.1 DSA paths below. Flash-Next, shared-index GLM,
+native V4 and the vLLM DSA contract retain their SM90 restrictions. Use `analyze()` with explicit
 `MemoryAssumptions(layout="runtime_reference", reference_engine="sglang",
 reference_version="0.5.23")` for a conditional complex-layout capacity estimate on
 an unsupported GPU; compatibility remains unsupported.
@@ -192,6 +190,33 @@ hardware = load_hardware("b200-180gb", memory_bytes=179_000_000_000,
 ```
 
 Runnable check/search/P-D examples are in [`examples/hardware`](examples/hardware).
+
+### GLM-5.1 DP Attention
+
+Set `RuntimeProfile.sglang(sglang_dp_attention=True)` or
+`"sglang_dp_attention": true` in a SGLang scenario's runtime object. In InferFit,
+`tp` is the width of each attention group and `dp` is the group count. A candidate
+with `tp=4, dp=2, ep=8, pp=1` maps to SGLang `tp_size=8, attn_dp_size=2,
+dp_size=1, ep_size=8`. To search DP Attention layouts exclusively, use DP values
+of at least two.
+
+| GPUs | KV format | DSA prefill / decode |
+| --- | --- | --- |
+| H800, H100, H20, H200 | BF16 or FP8 | BF16: FlashMLA Sparse / FA3. FP8: FlashMLA Auto / FlashMLA KV. |
+| B200, GB200, B300, GB300 | BF16 or FP8 | BF16: FlashMLA Sparse / TRT-LLM. FP8: TRT-LLM / TRT-LLM. |
+| RTX 5090 | FP8 | FlashInfer Sparse MLA / FlashInfer Sparse MLA, with PyTorch index logits. |
+
+TRT-LLM stores 576 bytes of FP8 MLA data per layer per token. FlashMLA and the
+SM120 FlashInfer path use 656 bytes of packed data. All three add 132 bytes of
+index data per layer per token. Use `kv_per_token(..., hardware=hardware)`
+to select the target layout. Omitting hardware keeps the Hopper reference layout.
+P/D capacity checks reject handoffs between the raw and packed FP8 layouts.
+
+The [B200 check](examples/hardware/b200-glm51-dp-attention-check.json) and
+[search](examples/hardware/b200-glm51-dp-attention-search.json) use FP8 weights and
+FP8 KV. The bundled regression matrix also includes an eight-card RTX 5090 case
+that reports insufficient capacity. These results are offline estimates with
+assumed runtime reserves. GPU startup and network behavior require deployment tests.
 
 ### Model coverage
 
@@ -222,16 +247,26 @@ inferfit check examples/flagships/qwen38-flash-next-fp8-check.json
 inferfit pd-check examples/h100-h20-qwen-pd.json
 ```
 
-`analyze` and `search-plans` accept the same model/hardware/runtime references, with
+`analyze` and `search` accept the same model, hardware, and runtime references, with
 additional memory assumptions and search policy options. For example:
 
 ```bash
 inferfit analyze examples/h800-glm51-sglang-check.json
-inferfit search-plans examples/h800-glm51-sglang-search.json
+inferfit search examples/h800-glm51-sglang-search.json
 ```
 
+`search` returns evaluation totals, the minimum GPU count, ranked candidates,
+and up to three aggregate rejection reasons. Each candidate includes its resolved
+`parallelism` (with PP layer counts), capacity metrics, and compatibility status.
+Set `search.limit` in the scenario JSON or pass `limit` to `search()` to cap
+the number of returned candidates after ranking.
+To get rank details or launch arguments, use the selected candidate's
+`parallelism` with the same model, hardware, runtime, and workload in `check`
+or `analyze`.
+
 `check`, `analyze`, and `pd-check` return exit code 0 when their memory/capacity check
-passes; search commands return 0 when candidates exist. Otherwise they return 2.
+passes. `search` returns 0 when candidates exist. An unsuccessful check or
+empty search returns 2.
 Input errors return 1. For `analyze`, exit code 0 alone does not imply backend support;
 inspect the compatibility assessment separately.
 
@@ -272,7 +307,7 @@ python -m build
 
 The package version is defined once in `src/inferfit/_version.py`. Setuptools reads
 that value for wheel/sdist metadata, and the SDK exports it as `inferfit.__version__`.
-The fixed repository version is **0.1.0**.
+The fixed repository version is **0.1.1**.
 
 ## Documentation and contributing
 

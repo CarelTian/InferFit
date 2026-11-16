@@ -7,6 +7,10 @@ from ..types import Hardware, ModelProfile, Parallelism, RuntimeProfile, TensorS
 from ..engine_versions import SGLANG_VERSION
 from .base import EngineAdapter
 
+
+_DATACENTER_BLACKWELL = {100, 103}
+_FLASHINFER_WORKSPACE_BYTES = 384 * 1024**2
+
 @dataclass(frozen=True)
 class SglangAdapter(EngineAdapter):
     engine: str = "sglang"
@@ -24,6 +28,18 @@ class SglangAdapter(EngineAdapter):
 
     def normalize_kv(self, value: str, model: ModelProfile) -> str:
         return {"bfloat16": "bf16", "float16": "fp16", "fp8": "fp8_e4m3"}.get(value, value)
+
+    def dsa_backends(self, hardware: Hardware | None, kv: str) -> tuple[str, str]:
+        cc = 90 if hardware is None else hardware.compute_capability
+        if cc in _DATACENTER_BLACKWELL:
+            return ("trtllm" if kv == "fp8_e4m3" else "flashmla_sparse"), "trtllm"
+        if cc == 120 and kv == "fp8_e4m3":
+            return "flashinfer_sparse_mla", "flashinfer_sparse_mla"
+        if cc is not None and cc // 10 == 9:
+            return ("flashmla_auto", "flashmla_kv") if kv == "fp8_e4m3" else ("flashmla_sparse", "fa3")
+        if cc == 120:
+            raise ValueError("SGLang GLM DSA on SM120 requires FP8 E4M3 KV and FlashInfer sparse MLA")
+        raise ValueError("SGLang GLM DSA requires Hopper SM90 or inspected Blackwell SM100, SM103, SM120")
 
     def expert_choices(self, p: Parallelism, r: RuntimeProfile) -> list[int]:
         width = self.native_tp(p, r)
@@ -65,8 +81,20 @@ class SglangAdapter(EngineAdapter):
             errors.append("Aggregate DP-attention batch exceeds the SGLang runtime envelope")
         if p.dp > 1 and not r.sglang_dp_attention and p.num_gpus > h.gpus_per_node:
             errors.append("SGLang multi-node ordinary DP is unsupported; use DP attention or separate launches")
-        if model.architecture == "mla_dsa" and kv not in {"bf16", "fp8_e4m3"}:
-            errors.append("SGLang DSA supports bf16 or fp8_e4m3 KV (fp8 alias)")
+        if model.architecture == "mla_dsa":
+            if kv not in {"bf16", "fp8_e4m3"}:
+                errors.append("SGLang DSA supports bf16 or fp8_e4m3 KV (fp8 alias)")
+            else:
+                try:
+                    self.dsa_backends(h, kv)
+                except ValueError as error:
+                    errors.append(str(error))
+            if h.compute_capability in _DATACENTER_BLACKWELL | {120}:
+                if (model.config.get("architectures") != ["GlmMoeDsaForCausalLM"]
+                        or model.config.get("learnable_sink")
+                        or model.config.get("index_kpool", 1) != 1
+                        or "shared" in model.config.get("indexer_types", [])):
+                    errors.append("Blackwell DSA contract requires the GLM-5.1 style unshared index and no attention sinks")
         if model.architecture in {"gqa", "gqa_moe"} and kv not in {"bf16", "fp16", "fp8_e4m3"}:
             errors.append("Unsupported SGLang GQA cache dtype")
         if native > model.config.get("n_routed_experts", model.config.get("num_experts", native)):
@@ -190,13 +218,18 @@ class SglangAdapter(EngineAdapter):
             "nnodes": nodes,
         }
         if model.architecture == "mla_dsa":
-            args.update(dsa_prefill_backend="flashmla_auto" if kv == "fp8_e4m3" else "flashmla_sparse",
-                        dsa_decode_backend="flashmla_kv" if kv == "fp8_e4m3" else "fa3",
+            prefill, decode = self.dsa_backends(h, kv)
+            args.update(dsa_prefill_backend=prefill, dsa_decode_backend=decode,
                         enable_dsa_fused_indexer=False)
         if fmt in {"fp8_block", "native"}:
             args["quantization"] = "fp8"
         env = {"SGLANG_PP_LAYER_PARTITION": ",".join(map(str, counts)),
                "SGLANG_USE_DEEPGEMM_BMM": "false"}
+        if model.architecture == "mla_dsa":
+            if h.compute_capability in _DATACENTER_BLACKWELL | {120}:
+                env["SGLANG_FLASHINFER_WORKSPACE_SIZE"] = str(_FLASHINFER_WORKSPACE_BYTES)
+            if h.compute_capability == 120:
+                env["SGLANG_FP8_PAGED_MQA_LOGITS_TORCH"] = "true"
         if model.architecture in {"gdn_moe", "gdn_qsa_moe"}:
             args["max_mamba_cache_size"] = w.concurrency_per_dp
             env.update(SGLANG_MAMBA_SSM_DTYPE="float32", SGLANG_MAMBA_CONV_DTYPE="bfloat16")
@@ -212,7 +245,19 @@ class SglangAdapter(EngineAdapter):
                        SGLANG_OPT_FP8_WO_A_GEMM="true", SGLANG_OPT_FUSE_WQA_WKV="false")
         return args, env
 
-    def resident_buffers(self, model, plan, workload, runtime):
+    def resident_buffers(self, model, plan, workload, runtime, *, hardware=None):
+        if model.architecture == "mla_dsa" and hardware is not None:
+            cc = hardware.compute_capability
+            if cc in _DATACENTER_BLACKWELL:
+                # FlashInfer rounds max(batch * local heads, SM count) to 8 counters.
+                # The 8192-request floor dominates the SM count on these GPUs.
+                local_heads = model.config["num_attention_heads"] // plan.tp
+                batch = max(8192, workload.concurrency_per_dp * self.batch_multiplier(plan, runtime))
+                counters = (batch * local_heads + 7) // 8 * 8
+                return {"dsa_flashinfer_workspace": _FLASHINFER_WORKSPACE_BYTES,
+                        "dsa_trtllm_kv_counters": counters * 4}
+            if cc == 120:
+                return {"dsa_flashinfer_workspace": _FLASHINFER_WORKSPACE_BYTES}
         if model.architecture != "dsv4":
             return {}
         c = model.config
@@ -220,6 +265,17 @@ class SglangAdapter(EngineAdapter):
         kinds = len({bool(ratio) for ratio in c["compress_ratios"]})
         return {"v4_rope_frequency_tables": kinds * c["max_position_embeddings"] * (c["qk_rope_head_dim"] // 2) * 8,
                 "v4_auxiliary_buffer_envelope": c["num_hidden_layers"] * 65536}
+
+    def dsa_index_workspace_bytes(self, w: Workload, h: Hardware | None) -> int:
+        if h is None or h.compute_capability != 120:
+            return self.workspace_bytes(w)
+        # SM120 uses the PyTorch indexer. Budget its extra score temporaries
+        # for prefill and the gathered rows for paged decode, at full demand.
+        context = (w.context_tokens + w.block_size - 1) // w.block_size * w.block_size
+        kv_rows = w.concurrency_per_dp * context
+        prefill = w.max_batch_tokens * kv_rows * 24
+        decode = kv_rows * (4 * 128 + 16)
+        return max(prefill, decode)
 
     def load_workspace_bytes(self, model, plan, runtime):
         if model.architecture != "dsv4":

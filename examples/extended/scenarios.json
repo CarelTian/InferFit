@@ -2577,5 +2577,389 @@
       "kv_quantization": "bf16"
     },
     "expected_status": "pass"
+  },
+  {
+    "name": "glm51-h100-sxm-80gb-sglang-dp-attention-fp8-kv",
+    "mode": "check",
+    "input": {
+      "model": "glm-5.1",
+      "hardware": {
+        "catalog": "h100-sxm-80gb",
+        "gpus_per_node": 8,
+        "available_nodes": 2
+      },
+      "runtime": {
+        "engine": "sglang",
+        "sglang_dp_attention": true
+      },
+      "parallelism": {
+        "tp": 8,
+        "dp": 2,
+        "ep": 16,
+        "pp": 1,
+        "num_gpus": 16
+      },
+      "weight_quantization": "fp8_block",
+      "kv_quantization": "fp8",
+      "workload": {
+        "context_tokens": 8192,
+        "concurrency_per_dp": 1,
+        "max_batch_tokens": 2048,
+        "block_size": 64
+      }
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "glm51-h20-96gb-sglang-dp-attention-fp8-kv",
+    "mode": "check",
+    "input": {
+      "model": "glm-5.1",
+      "hardware": {
+        "catalog": "h20-96gb",
+        "gpus_per_node": 8,
+        "available_nodes": 2
+      },
+      "runtime": {
+        "engine": "sglang",
+        "sglang_dp_attention": true
+      },
+      "parallelism": {
+        "tp": 8,
+        "dp": 2,
+        "ep": 16,
+        "pp": 1,
+        "num_gpus": 16
+      },
+      "weight_quantization": "fp8_block",
+      "kv_quantization": "fp8",
+      "workload": {
+        "context_tokens": 8192,
+        "concurrency_per_dp": 1,
+        "max_batch_tokens": 2048,
+        "block_size": 64
+      }
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "glm51-h200-141gb-sglang-dp-attention-fp8-kv",
+    "mode": "check",
+    "input": {
+      "model": "glm-5.1",
+      "hardware": {
+        "catalog": "h200-141gb",
+        "gpus_per_node": 8,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang",
+        "sglang_dp_attention": true
+      },
+      "parallelism": {
+        "tp": 4,
+        "dp": 2,
+        "ep": 8,
+        "pp": 1,
+        "num_gpus": 8
+      },
+      "weight_quantization": "fp8_block",
+      "kv_quantization": "fp8",
+      "workload": {
+        "context_tokens": 8192,
+        "concurrency_per_dp": 1,
+        "max_batch_tokens": 2048,
+        "block_size": 64
+      }
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "glm51-b200-180gb-sglang-dp-attention-fp8-kv",
+    "mode": "check",
+    "input": {
+      "model": "glm-5.1",
+      "hardware": {
+        "catalog": "b200-180gb",
+        "gpus_per_node": 8,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang",
+        "sglang_dp_attention": true
+      },
+      "parallelism": {
+        "tp": 4,
+        "dp": 2,
+        "ep": 8,
+        "pp": 1,
+        "num_gpus": 8
+      },
+      "weight_quantization": "fp8_block",
+      "kv_quantization": "fp8",
+      "workload": {
+        "context_tokens": 8192,
+        "concurrency_per_dp": 1,
+        "max_batch_tokens": 2048,
+        "block_size": 64
+      }
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "glm51-gb200-186gb-sglang-dp-attention-fp8-kv",
+    "mode": "check",
+    "input": {
+      "model": "glm-5.1",
+      "hardware": {
+        "catalog": "gb200-186gb",
+        "gpus_per_node": 4,
+        "available_nodes": 2
+      },
+      "runtime": {
+        "engine": "sglang",
+        "sglang_dp_attention": true
+      },
+      "parallelism": {
+        "tp": 4,
+        "dp": 2,
+        "ep": 8,
+        "pp": 1,
+        "num_gpus": 8
+      },
+      "weight_quantization": "fp8_block",
+      "kv_quantization": "fp8",
+      "workload": {
+        "context_tokens": 8192,
+        "concurrency_per_dp": 1,
+        "max_batch_tokens": 2048,
+        "block_size": 64
+      }
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "glm51-b300-270gb-sglang-dp-attention-fp8-kv",
+    "mode": "check",
+    "input": {
+      "model": "glm-5.1",
+      "hardware": {
+        "catalog": "b300-270gb",
+        "gpus_per_node": 8,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang",
+        "sglang_dp_attention": true
+      },
+      "parallelism": {
+        "tp": 1,
+        "dp": 4,
+        "ep": 4,
+        "pp": 1,
+        "num_gpus": 4
+      },
+      "weight_quantization": "fp8_block",
+      "kv_quantization": "fp8",
+      "workload": {
+        "context_tokens": 8192,
+        "concurrency_per_dp": 1,
+        "max_batch_tokens": 2048,
+        "block_size": 64
+      }
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "glm51-b300-288gb-sglang-dp-attention-fp8-kv",
+    "mode": "check",
+    "input": {
+      "model": "glm-5.1",
+      "hardware": {
+        "catalog": "b300-288gb",
+        "gpus_per_node": 8,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang",
+        "sglang_dp_attention": true
+      },
+      "parallelism": {
+        "tp": 1,
+        "dp": 4,
+        "ep": 4,
+        "pp": 1,
+        "num_gpus": 4
+      },
+      "weight_quantization": "fp8_block",
+      "kv_quantization": "fp8",
+      "workload": {
+        "context_tokens": 8192,
+        "concurrency_per_dp": 1,
+        "max_batch_tokens": 2048,
+        "block_size": 64
+      }
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "glm51-gb300-279gb-sglang-dp-attention-fp8-kv",
+    "mode": "check",
+    "input": {
+      "model": "glm-5.1",
+      "hardware": {
+        "catalog": "gb300-279gb",
+        "gpus_per_node": 4,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang",
+        "sglang_dp_attention": true
+      },
+      "parallelism": {
+        "tp": 1,
+        "dp": 4,
+        "ep": 4,
+        "pp": 1,
+        "num_gpus": 4
+      },
+      "weight_quantization": "fp8_block",
+      "kv_quantization": "fp8",
+      "workload": {
+        "context_tokens": 8192,
+        "concurrency_per_dp": 1,
+        "max_batch_tokens": 2048,
+        "block_size": 64
+      }
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "glm51-gb300-288gb-sglang-dp-attention-fp8-kv",
+    "mode": "check",
+    "input": {
+      "model": "glm-5.1",
+      "hardware": {
+        "catalog": "gb300-288gb",
+        "gpus_per_node": 4,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang",
+        "sglang_dp_attention": true
+      },
+      "parallelism": {
+        "tp": 1,
+        "dp": 4,
+        "ep": 4,
+        "pp": 1,
+        "num_gpus": 4
+      },
+      "weight_quantization": "fp8_block",
+      "kv_quantization": "fp8",
+      "workload": {
+        "context_tokens": 8192,
+        "concurrency_per_dp": 1,
+        "max_batch_tokens": 2048,
+        "block_size": 64
+      }
+    },
+    "expected_status": "pass"
+  },
+  {
+    "name": "glm51-rtx5090-32gb-sglang-dp-attention-fp8-kv",
+    "mode": "check",
+    "input": {
+      "model": "glm-5.1",
+      "hardware": {
+        "catalog": "rtx5090-32gb",
+        "gpus_per_node": 8,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang",
+        "sglang_dp_attention": true
+      },
+      "parallelism": {
+        "tp": 4,
+        "dp": 2,
+        "ep": 8,
+        "pp": 1,
+        "num_gpus": 8
+      },
+      "weight_quantization": "fp8_block",
+      "kv_quantization": "fp8",
+      "workload": {
+        "context_tokens": 8192,
+        "concurrency_per_dp": 1,
+        "max_batch_tokens": 2048,
+        "block_size": 64
+      }
+    },
+    "expected_status": "fail"
+  },
+  {
+    "name": "glm51-rtx5090-32gb-sglang-dp-attention-bf16-kv",
+    "mode": "check",
+    "input": {
+      "model": "glm-5.1",
+      "hardware": {
+        "catalog": "rtx5090-32gb",
+        "gpus_per_node": 8,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang",
+        "sglang_dp_attention": true
+      },
+      "parallelism": {
+        "tp": 4,
+        "dp": 2,
+        "ep": 8,
+        "pp": 1,
+        "num_gpus": 8
+      },
+      "weight_quantization": "fp8_block",
+      "kv_quantization": "bf16",
+      "workload": {
+        "context_tokens": 8192,
+        "concurrency_per_dp": 1,
+        "max_batch_tokens": 2048,
+        "block_size": 64
+      }
+    },
+    "expected_status": "unsupported"
+  },
+  {
+    "name": "glm51-a100-80gb-sglang-dp-attention-bf16-kv",
+    "mode": "check",
+    "input": {
+      "model": "glm-5.1",
+      "hardware": {
+        "catalog": "a100-80gb",
+        "gpus_per_node": 8,
+        "available_nodes": 1
+      },
+      "runtime": {
+        "engine": "sglang",
+        "sglang_dp_attention": true
+      },
+      "parallelism": {
+        "tp": 4,
+        "dp": 2,
+        "ep": 8,
+        "pp": 1,
+        "num_gpus": 8
+      },
+      "weight_quantization": "fp8_block",
+      "kv_quantization": "bf16",
+      "workload": {
+        "context_tokens": 8192,
+        "concurrency_per_dp": 1,
+        "max_batch_tokens": 2048,
+        "block_size": 64
+      }
+    },
+    "expected_status": "unsupported"
   }
 ]

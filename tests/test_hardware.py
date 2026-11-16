@@ -8,7 +8,7 @@ import pytest
 
 from inferfit import (MemoryAssumptions, Parallelism, RuntimeProfile, analyze,
                       check, hardware_catalog, load_hardware, load_model,
-                      load_qwen3_235b, search, search_plans)
+                      search)
 from inferfit.cli import evaluate_document
 
 
@@ -51,7 +51,7 @@ def test_a100_40gb_preset_removed_but_80gb_retained():
 
 @pytest.fixture(scope="module")
 def qwen():
-    return load_qwen3_235b()
+    return load_model("qwen3-235b-a22b")
 
 
 @pytest.mark.parametrize("runtime", [RuntimeProfile.sglang(), RuntimeProfile()])
@@ -105,7 +105,7 @@ def test_qwen_sglang_search_uses_actual_capacity(qwen, name, expected):
                     weight_quantization="bf16", tp_values=[1, 2, 4], dp_values=[1],
                     pp_values=[1], max_gpus=4)
     assert result.minimum_num_gpus == expected
-    assert all(c.memory_pass for c in result.candidates)
+    assert all(c.static_candidate for c in result.candidates)
 
 
 @pytest.fixture(scope="module")
@@ -139,8 +139,8 @@ def test_capacity_search_keeps_blackwell_compatibility_restriction(flash_next):
                   weight_quantization="native", tp_values=[2], ep_values=[2],
                   pp_values=[1], dp_values=[1], max_gpus=2,
                   assumptions=MemoryAssumptions("runtime_reference", "sglang", "0.5.23"))
-    assert not search_plans(flash_next, **kwargs).candidates
-    result = search_plans(flash_next, policy="capacity", **kwargs)
+    assert not search(flash_next, **kwargs).candidates
+    result = search(flash_next, policy="capacity", **kwargs)
     assert result.minimum_num_gpus == 2
     assert result.candidates[0].compatibility.status == "unsupported"
 
@@ -151,7 +151,8 @@ def test_hardware_examples_are_runnable(path):
     mode = "pd-check" if path.stem.endswith("-pd") else "search" if path.stem.endswith("-search") else "check"
     result = evaluate_document(json.loads(path.read_text()), mode=mode, base=path.parent)
     if mode == "search":
-        assert result["minimum_num_gpus"] == 4
+        expected = 6 if path.stem == "b200-glm51-dp-attention-search" else 4
+        assert result["minimum_num_gpus"] == expected
     else:
         assert result["status"] == "pass"
 

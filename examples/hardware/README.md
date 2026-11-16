@@ -15,6 +15,8 @@ inferfit check examples/hardware/gb300-288gb-check.json
 inferfit check examples/hardware/rtx5090-32gb-check.json
 inferfit search examples/hardware/b200-180gb-search.json
 inferfit pd-check examples/hardware/h200-b200-pd.json
+inferfit check examples/hardware/b200-glm51-dp-attention-check.json
+inferfit search examples/hardware/b200-glm51-dp-attention-search.json
 ```
 
 The data-center check examples place Qwen3-235B-A22B BF16 on four GPUs with
@@ -38,7 +40,8 @@ the DGX B300 guide / GB300 launch article. Inspect `inferfit hardware` for sourc
 URLs and notes. Override `memory_bytes` with actual driver-visible bytes before
 making a deployment decision.
 
-Model-family restrictions still apply. H200 shares the maintained SM90 contracts;
-adding Blackwell fixtures does not expand the SM90-only Flash-Next, MLA/DSA or
-native V4 kernel contracts. A capacity result is an analytical estimate, not a GPU
-execution test. Runtime reserves are assumed, and no latency is predicted.
+The GLM-5.1 scenarios use SGLang DP Attention with FP8 weights and FP8 KV.
+The fixed B200 layout uses two attention groups of four GPUs each. The search
+also evaluates smaller attention groups and PP partitions within eight GPUs.
+See the [backend matrix](../../README.md#glm-51-dp-attention) for GPU and KV support.
+Runtime reserves are assumed. Deployments require GPU execution tests.

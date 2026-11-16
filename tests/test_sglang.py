@@ -9,15 +9,15 @@ from importlib.resources import files
 from pathlib import Path
 
 from inferfit import (GiB, Hardware, Parallelism, RuntimeProfile, Workload,
-                                check, from_config, kv_per_token, load_glm51,
-                                optimize_pipeline, search)
+                                check, from_config, kv_per_token, load_model,
+                                load_hardware, optimize_pipeline, PDPool, check_pd, search)
 from inferfit.cli import evaluate_document
 
 
 class SglangTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.model = load_glm51()
+        cls.model = load_model("glm-5.1")
         cls.runtime = RuntimeProfile.sglang()
         cls.plan = Parallelism(8, 1, 8, 2, 16)
         cls.contract = json.loads(files("inferfit").joinpath("data/sglang-contract.json").read_text())
@@ -113,6 +113,82 @@ class SglangTests(unittest.TestCase):
         self.assertEqual((result.ranks[4].pp_rank, result.ranks[4].dp_rank), (0, 1))
         self.assertEqual((result.ranks[8].pp_rank, result.ranks[8].dp_rank), (1, 0))
 
+    def test_blackwell_dsa_backends_choose_matching_fp8_kv_rows(self):
+        runtime = RuntimeProfile.sglang(sglang_dp_attention=True)
+        plan = Parallelism(4, 2, 8, 1, 8)
+        cases = [
+            ("h200-141gb", "flashmla_auto", "flashmla_kv", 656, "pass"),
+            ("b200-180gb", "trtllm", "trtllm", 576, "pass"),
+            ("gb300-279gb", "trtllm", "trtllm", 576, "pass"),
+            ("rtx5090-32gb", "flashinfer_sparse_mla", "flashinfer_sparse_mla", 656, "fail"),
+        ]
+        for name, prefill, decode, row_bytes, status in cases:
+            with self.subTest(hardware=name):
+                h = load_hardware(name)
+                result = check(self.model, hardware=h, parallelism=plan, runtime=runtime,
+                               kv_quantization="fp8")
+                self.assertEqual(result.status, status)
+                rank = result.ranks[0]
+                args = result.summary["engine_args"]
+                self.assertEqual((args["dsa_prefill_backend"], args["dsa_decode_backend"]),
+                                 (prefill, decode))
+                self.assertEqual((args["tp_size"], args["attn_dp_size"], args["dp_size"]), (8, 2, 1))
+                expected = 78 * (row_bytes + 132)
+                self.assertEqual(rank.kv_bytes_per_token, expected)
+                self.assertEqual(rank.kv_required_bytes, (8192 + 64) * expected)
+                rate = kv_per_token(self.model, tp=plan.tp, runtime=runtime, hardware=h,
+                                    kv_quantization="fp8")
+                self.assertEqual(rate["total"], expected)
+                if decode == "trtllm":
+                    self.assertEqual(rank.runtime_breakdown["dsa_flashinfer_workspace"], 384 * 1024**2)
+                    self.assertEqual(rank.runtime_breakdown["dsa_trtllm_kv_counters"], 8192 * 16 * 4)
+                if decode == "flashinfer_sparse_mla":
+                    self.assertEqual(result.summary["engine_env"]["SGLANG_FP8_PAGED_MQA_LOGITS_TORCH"], "true")
+
+    def test_blackwell_bf16_and_unsupported_dsa_paths(self):
+        runtime = RuntimeProfile.sglang(sglang_dp_attention=True)
+        plan = Parallelism(4, 2, 8, 1, 8)
+        result = check(self.model, hardware=load_hardware("b300-270gb"),
+                       parallelism=plan, runtime=runtime)
+        self.assertEqual(result.status, "pass")
+        args = result.summary["engine_args"]
+        self.assertEqual((args["dsa_prefill_backend"], args["dsa_decode_backend"]),
+                         ("flashmla_sparse", "trtllm"))
+        self.assertEqual(result.ranks[0].kv_bytes_per_token, 78 * (1152 + 132))
+        for name in ("a100-80gb", "rtx5090-32gb"):
+            self.assertEqual(check(self.model, hardware=load_hardware(name), parallelism=plan,
+                                   runtime=runtime).status, "unsupported")
+        self.assertEqual(check(self.model, hardware=load_hardware("b200-180gb")).status, "unsupported")
+
+    def test_public_dp_attention_search_keeps_blackwell_kv_layout_during_pp_optimization(self):
+        path = Path(__file__).resolve().parents[1] / "examples/hardware/b200-glm51-dp-attention-search.json"
+        document = json.loads(path.read_text())
+        result = evaluate_document(document, mode="search")
+        self.assertEqual(result["minimum_num_gpus"], 6)
+        candidate = result["candidates"][0]
+        self.assertEqual(candidate["parallelism"]["dp"], 2)
+        document.pop("search")
+        checked = evaluate_document({**document, "parallelism": candidate["parallelism"]})
+        self.assertEqual(checked["summary"]["kv_bytes_per_token_logical"], 78 * (576 + 132))
+        self.assertEqual(checked["summary"]["engine_args"]["dsa_decode_backend"], "trtllm")
+        for rank in checked["ranks"]:
+            self.assertEqual(rank["kv_bytes_per_token"],
+                             (rank["layer_end"] - rank["layer_start"]) * (576 + 132))
+
+    def test_pd_rejects_hopper_to_blackwell_fp8_cache_without_conversion(self):
+        runtime = RuntimeProfile.sglang(sglang_dp_attention=True)
+        plan = Parallelism(4, 2, 8, 1, 8)
+        p = PDPool(tuple(f"p/gpu{i}" for i in range(8)), load_hardware("h200-141gb"),
+                   plan, runtime, weight_quantization="fp8_block", kv_quantization="fp8")
+        d = replace(p, gpu_ids=tuple(f"d/gpu{i}" for i in range(8)), hardware=load_hardware("b200-180gb"))
+        result = check_pd(self.model, prefill=p, decode=d)
+        self.assertEqual(result.status, "unsupported")
+        self.assertIn("different KV storage layouts", result.reasons[0])
+        same_layout = check_pd(self.model, prefill=replace(p, hardware=load_hardware("gb200-186gb")), decode=d)
+        self.assertEqual(same_layout.status, "pass")
+        self.assertEqual(same_layout.summary["handoff_logical_payload_bytes_per_request"],
+                         8192 * 78 * (576 + 132))
+
     def test_equal_worker_topology_and_no_cross_attention_tp(self):
         optimized = optimize_pipeline(self.model, parallelism=Parallelism(4, 1, 4, 3, 12), runtime=self.runtime)
         self.assertTrue(optimized.memory_pass)
@@ -179,8 +255,8 @@ class SglangTests(unittest.TestCase):
         result = search(self.model, runtime=self.runtime, gpu_counts=[8, 12, 16], max_gpus=16,
                         tp_values=[4, 8], pp_values=[1, 2, 3], dp_values=[1, 2])
         self.assertEqual(result.minimum_num_gpus, 12)
-        self.assertGreater(result.counts["unsupported"], 0)
-        self.assertTrue(all(r.summary["engine"]=="sglang" for r in result.candidates))
+        self.assertGreater(result.compatibility_counts["unsupported"], 0)
+        self.assertTrue(all(r.static_candidate for r in result.candidates))
         self.assertTrue(all(r.parallelism.dp==1 for r in result.candidates))
         self.assertTrue(any(r.parallelism.ep==2 for r in result.candidates))
 

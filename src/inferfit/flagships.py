@@ -1,4 +1,4 @@
-"""Offline flagship snapshots and hybrid state accounting.
+"""Offline catalog and loader for bundled model snapshots.
 
 Model availability and analytical support are deliberately separate fields.
 """
@@ -30,8 +30,14 @@ def load_model(name: str) -> ModelProfile:
                 metadata = files("inferfit").joinpath("data", entry["metadata_file"]).read_bytes()
                 if hashlib.sha256(metadata).hexdigest() != entry["metadata_sha256"]:
                     raise ValueError("Bundled tensor inventory digest mismatch")
+            source = dict(entry)
+            if entry.get("source_file"):
+                provenance = files("inferfit").joinpath("data", entry["source_file"]).read_bytes()
+                if hashlib.sha256(provenance).hexdigest() != entry["source_sha256"]:
+                    raise ValueError("Bundled model provenance digest mismatch")
+                source.update(json.loads(provenance))
             model = from_config(json.loads(payload), model_id=entry["id"], revision=entry["revision"])
             from .profiles import validate_model_profile
             validate_model_profile(model)
-            return replace(model, provenance={**model.provenance, "source": entry})
+            return replace(model, provenance={**model.provenance, "source": source})
     raise ValueError(f"Unknown catalog model: {name}")

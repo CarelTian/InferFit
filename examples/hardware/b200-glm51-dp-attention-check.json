@@ -1,0 +1,27 @@
+{
+  "model": "glm-5.1",
+  "hardware": {
+    "catalog": "b200-180gb",
+    "gpus_per_node": 8,
+    "available_nodes": 1
+  },
+  "runtime": {
+    "engine": "sglang",
+    "sglang_dp_attention": true
+  },
+  "parallelism": {
+    "tp": 4,
+    "dp": 2,
+    "ep": 8,
+    "pp": 1,
+    "num_gpus": 8
+  },
+  "weight_quantization": "fp8_block",
+  "kv_quantization": "fp8",
+  "workload": {
+    "context_tokens": 8192,
+    "concurrency_per_dp": 1,
+    "max_batch_tokens": 2048,
+    "block_size": 64
+  }
+}

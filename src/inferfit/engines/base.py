@@ -22,7 +22,7 @@ class EngineAdapter(ABC):
     def batch_multiplier(self, p: Parallelism, r: RuntimeProfile) -> int:
         return 1
 
-    def resident_buffers(self, model, plan, workload, runtime) -> dict[str, int]:
+    def resident_buffers(self, model, plan, workload, runtime, *, hardware=None) -> dict[str, int]:
         return {}
 
     def load_workspace_bytes(self, model, plan, runtime) -> int:
@@ -58,6 +58,9 @@ class EngineAdapter(ABC):
     @abstractmethod
     def workspace_bytes(self, w: Workload) -> int:
         raise NotImplementedError
+
+    def dsa_index_workspace_bytes(self, w: Workload, h: Hardware | None) -> int:
+        return self.workspace_bytes(w)
 
     @abstractmethod
     def validate(self, model, hardware, plan, workload, runtime, weight_format, kv_format):

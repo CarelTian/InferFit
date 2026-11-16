@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 
 from inferfit import (Hardware, Parallelism, RuntimeProfile, Workload, check,
-                      from_config, load_glm51, load_model, optimize_pipeline)
+                      from_config, load_model, optimize_pipeline)
 from inferfit.states import get_state_model
 from inferfit.states.base import StandardStateModel, StateAllocation
 from inferfit.states.deepseek_v4 import DeepSeekV4StateModel
@@ -24,7 +24,7 @@ class PartitionCostTests(unittest.TestCase):
         cls.dense = dense_model()
         cls.cases = [
             (cls.dense, RuntimeProfile(), "bf16", 64),
-            (load_glm51(), RuntimeProfile.sglang(), "fp8", 64),
+            (load_model("glm-5.1"), RuntimeProfile.sglang(), "fp8", 64),
             (load_model("qwen3.8-2.4t-a95b"), RuntimeProfile.sglang(), "bf16", 64),
             (load_model("qwen3.8-flash-next"), RuntimeProfile.sglang(), "bf16", 64),
             (load_model("deepseek-v4-flash"), RuntimeProfile.sglang(), "fp8", 256),

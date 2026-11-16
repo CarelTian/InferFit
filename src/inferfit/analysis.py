@@ -2,15 +2,16 @@
 from collections import Counter
 from dataclasses import replace
 from itertools import product
+from typing import Iterable
 
-from .analysis_types import (AnalysisResult, CapacityAssessment, CompatibilityAssessment,
-                             MemoryAssumptions, PlanSearchResult)
+from .analysis_types import (AnalysisResult, CapacityAssessment, CapacitySummary,
+                             CompatibilityAssessment, CompatibilitySummary, MemoryAssumptions,
+                             PlanSearchCandidate, PlanSearchResult)
 from .backends import assess_uninspected, resolve_backend
 from .engines import get_adapter
 from .estimator import _check, check
 from .partition import optimize_pipeline
-from .search import _degrees
-from .types import Hardware, Parallelism, RuntimeProfile, Workload
+from .types import Hardware, ModelProfile, Parallelism, RuntimeProfile, Workload
 
 
 def _memory_runtime(runtime, assumptions):
@@ -106,12 +107,22 @@ def _analyze(model, h, p, w, r, weight, kv, assumptions, memory_runtime, backend
                           raw.kv_quantization, capacity, compatibility)
 
 
-def search_plans(model, *, hardware=None, workload=None, runtime=None,
-                 weight_quantization="fp8_block", kv_quantization="bf16", assumptions=None,
-                 policy="static", tp_values=(1, 2, 4, 8), dp_values=(1, 2, 4),
-                 pp_values=tuple(range(1, 17)), ep_values=None, gpu_counts=None,
-                 max_gpus=64, limit=20, optimize_pp=True):
-    """Search static-supported or capacity-only candidates with rejection diagnostics."""
+def _degrees(values: Iterable[int], name: str) -> tuple[int, ...]:
+    values = tuple(values)
+    if not values or any(type(value) is not int or value <= 0 for value in values):
+        raise ValueError(f"{name} must be a nonempty sequence of positive integers")
+    return tuple(sorted(set(values)))
+
+
+def search(model: ModelProfile, *, hardware: Hardware | None = None,
+                workload: Workload | None = None, runtime: RuntimeProfile | None = None,
+                weight_quantization: str = "fp8_block", kv_quantization: str = "bf16",
+                assumptions: MemoryAssumptions | None = None, policy: str = "static",
+                tp_values: Iterable[int] = (1, 2, 4, 8), dp_values: Iterable[int] = (1, 2, 4),
+                pp_values: Iterable[int] = tuple(range(1, 17)), ep_values: Iterable[int] | None = None,
+                gpu_counts: Iterable[int] | None = None, max_gpus: int = 64, limit: int = 20,
+                optimize_pp: bool = True) -> PlanSearchResult:
+    """Find and rank candidate layouts with capacity and compatibility summaries."""
     if policy not in {"static", "capacity"}:
         raise ValueError("policy must be static or capacity")
     if type(optimize_pp) is not bool:
@@ -144,21 +155,30 @@ def search_plans(model, *, hardware=None, workload=None, runtime=None,
             cc[result.capacity.status] += 1
             bc[result.compatibility.status] += 1
             if result.capacity.status == "pass" and (policy == "capacity" or result.static_candidate):
-                candidates.append(result)
+                capacity = result.capacity
+                compatibility = result.compatibility
+                summary = capacity.summary
+                candidates.append(PlanSearchCandidate(
+                    parallelism=replace(result.parallelism, stage_layers=tuple(summary["stage_layers"])),
+                    capacity=CapacitySummary(capacity.status, capacity.basis, {
+                        "nodes_required": summary["nodes_required"],
+                        "minimum_headroom_bytes": summary["minimum_headroom_bytes"],
+                        "kv_bytes_per_token_per_rank_max": summary["kv_bytes_per_token_per_rank_max"],
+                        "kv_capacity_tokens_per_dp": summary["kv_capacity_tokens_per_dp"],
+                    }),
+                    compatibility=CompatibilitySummary(compatibility.status, compatibility.backend_id),
+                    static_candidate=result.static_candidate,
+                ))
             else:
                 reasons = list(result.capacity.reasons)
                 if policy == "static" and result.compatibility.status != "supported":
                     reasons.extend(result.compatibility.reasons)
-                rejected.update(set(reasons))
+                rejected.update(iter(dict.fromkeys(reasons)))
     candidates.sort(key=lambda x: (x.parallelism.num_gpus, x.parallelism.dp,
                                    -x.capacity.summary["minimum_headroom_bytes"],
                                    x.parallelism.pp, x.parallelism.tp, x.parallelism.ep))
     if not cc:
         rejected["No degree combination matches max_gpus and gpu_counts"] = 1
-    space = dict(tp_values=list(tps), dp_values=list(dps), pp_values=list(pps),
-                 ep_values=list(eps) if eps else "layout_mesh_degrees", max_gpus=max_gpus,
-                 gpu_counts=list(gpu_counts) if gpu_counts else None, optimize_pp=optimize_pp,
-                 passing_candidates_total=len(candidates), returned_limit=limit)
     return PlanSearchResult(candidates[:limit], sum(cc.values()), dict(cc), dict(bc),
                             candidates[0].parallelism.num_gpus if candidates else None,
-                            policy, dict(rejected), space)
+                            policy, dict(rejected.most_common(3)), len(candidates))

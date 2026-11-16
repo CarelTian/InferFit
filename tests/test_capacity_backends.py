@@ -9,8 +9,8 @@ from unittest.mock import patch
 import pytest
 
 from inferfit import (Hardware, Parallelism, RuntimeProfile, Workload, MemoryAssumptions,
-    analyze, search_plans, check, search, from_config, load_hardware, hardware_catalog,
-    load_glm51, load_model, load_qwen3_235b)
+    analyze, search, check, from_config, load_hardware, hardware_catalog,
+    load_model)
 from inferfit.backends import resolve_backend
 from inferfit.cli import evaluate_document
 
@@ -85,8 +85,12 @@ def test_known_unsupported_fp8_gpu_does_not_become_supported_after_fallback():
     assert not result.static_candidate
     options = dict(hardware=load_hardware("a100-80gb"), weight_quantization="bf16",
                    kv_quantization="fp8", tp_values=[2], dp_values=[1], pp_values=[1])
-    assert not search_plans(dense(), **options).candidates
-    assert len(search_plans(dense(), **options, policy="capacity").candidates) == 1
+    assert not search(dense(), **options).candidates
+    plans = search(dense(), **options, policy="capacity")
+    compact, = plans.to_dict()["candidates"]
+    assert compact["capacity"]["status"] == "pass"
+    assert compact["compatibility"]["status"] == "unsupported"
+    assert not compact["static_candidate"]
 
 
 def test_backend_match_requires_upstream_identity_not_cuda_api():
@@ -102,7 +106,7 @@ def test_backend_match_requires_upstream_identity_not_cuda_api():
 
 
 def test_model_specific_state_is_never_silently_replaced_by_gqa():
-    model, h = load_glm51(), custom_hardware()
+    model, h = load_model("glm-5.1"), custom_hardware()
     result = analyze(model, hardware=h)
     assert result.capacity.status == "unknown"
     assert result.capacity.missing_data
@@ -158,39 +162,29 @@ def test_capacity_pp_optimization_matches_exhaustive_partitions():
 def test_qwen_capacity_search_has_conditional_minimum_and_diagnostics(gb, minimum):
     options = dict(hardware=custom_hardware(gb), runtime=RuntimeProfile.sglang(),
         weight_quantization="bf16", tp_values=[1, 2, 4, 8], dp_values=[1], pp_values=[1])
-    capacity = search_plans(load_qwen3_235b(), policy="capacity", **options)
+    capacity = search(load_model("qwen3-235b-a22b"), policy="capacity", **options)
     assert capacity.minimum_num_gpus == minimum
     assert all(x.capacity.status == "pass" and x.compatibility.status == "unknown" for x in capacity.candidates)
-    static = search_plans(load_qwen3_235b(), **options)
+    static = search(load_model("qwen3-235b-a22b"), **options)
     assert static.candidates == []
-    assert static.rejection_reasons
+    assert static.top_rejection_reasons
     assert static.capacity_counts["pass"] > 0
     assert static.compatibility_counts == {"unknown": static.evaluated}
 
 
-def test_inspected_cuda_results_and_search_order_are_retained():
-    model, r = load_glm51(), RuntimeProfile.sglang()
-    options = dict(runtime=r, weight_quantization="fp8", tp_values=[4, 8],
-                   dp_values=[1], pp_values=[1, 2, 4], max_gpus=16)
-    legacy, modern = search(model, **options), search_plans(model, **options)
-    assert legacy.minimum_num_gpus == modern.minimum_num_gpus
-    assert len(legacy.candidates) == len(modern.candidates)
-    for a, b in zip(legacy.candidates, modern.candidates):
-        assert a.parallelism == b.parallelism
-        assert a.ranks == b.capacity.ranks
-        assert a.summary == b.capacity.summary
-        assert b.static_candidate
-
-
 def test_search_resolves_backend_once_and_explains_an_empty_degree_space():
     with patch("inferfit.analysis.resolve_backend", wraps=resolve_backend) as resolve:
-        result = search_plans(dense(), hardware=custom_hardware(96), policy="capacity",
+        result = search(dense(), hardware=custom_hardware(96), policy="capacity",
             weight_quantization="bf16", tp_values=[1, 2], dp_values=[1], pp_values=[1, 2])
         assert result.candidates
         assert resolve.call_count == 1
-    result = search_plans(dense(), gpu_counts=[3], tp_values=[1, 2], dp_values=[1], pp_values=[1])
+    result = search(dense(), gpu_counts=[3], tp_values=[1, 2], dp_values=[1], pp_values=[1])
     assert result.evaluated == 0
     assert result.candidates == []
+    compact = result.to_dict()
+    assert compact["minimum_num_gpus"] is None
+    assert compact["passing_candidates_total"] == 0
+    assert compact["top_rejection_reasons"] == {"No degree combination matches max_gpus and gpu_counts": 1}
 
 
 def test_custom_device_and_vendor_build_cannot_bypass_strict_checks():
@@ -224,4 +218,4 @@ def test_cli_scenario_and_exit_status_keep_capacity_separate_from_deployment(tmp
     assert json.loads(run.stdout)["compatibility"]["status"] == "unknown"
     doc.pop("parallelism")
     doc["search"] = {"tp_values": [4, 8], "dp_values": [1], "pp_values": [1], "policy": "capacity"}
-    assert evaluate_document(doc, mode="search-plans")["minimum_num_gpus"] == 8
+    assert evaluate_document(doc, mode="search")["minimum_num_gpus"] == 8

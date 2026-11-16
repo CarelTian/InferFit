@@ -66,14 +66,17 @@ def _tensor_local(t: TensorSpec, model: ModelProfile, p: Parallelism,
 
 def kv_per_token(model: ModelProfile, *, tp: int = 1, layers: int | None = None,
                  kv_quantization: str = "bf16", runtime: RuntimeProfile | None = None,
-                 layer_start: int = 0) -> dict[str, int]:
+                 layer_start: int = 0, hardware: Hardware | None = None) -> dict[str, int]:
     """Per-rank token geometry; paged V4 rates are rounded-up amortized bytes.
 
+    Pass hardware to select the SGLang DSA device layout. With no hardware,
+    SGLang DSA retains its Hopper reference layout.
     Exact demand (including pages and fixed states) is reported by check().
     """
     from .states import get_state_model
     return get_state_model(model).per_token(model, tp=tp, layers=layers,
-        kv_quantization=kv_quantization, runtime=runtime, layer_start=layer_start)
+        kv_quantization=kv_quantization, runtime=runtime, layer_start=layer_start,
+        hardware=hardware)
 
 
 def _validate(model: ModelProfile, h: Hardware, p: Parallelism, w: Workload,
@@ -149,13 +152,11 @@ def _validate(model: ModelProfile, h: Hardware, p: Parallelism, w: Workload,
         if (model.config["kv_lora_rank"],model.config["qk_rope_head_dim"],model.config["index_head_dim"]) != (512,64,128):
             unsupported.append("Pinned DSA backend requires latent/RoPE/index dimensions 512/64/128")
         if fmt == "fp16":
-            unsupported.append("Pinned GLM FlashMLA sparse profile uses BF16 compute; use bf16 or fp8_block weights")
+            unsupported.append("Pinned GLM DSA profile uses BF16 compute; use bf16 or fp8_block weights")
         if model.config["n_routed_experts"] % p.ep:
             invalid.append("n_routed_experts must be divisible by EP")
         if w.block_size != 64:
-            unsupported.append("FLASHMLA_SPARSE requires block_size=64")
-        if h.compute_capability // 10 != 9:
-            unsupported.append("This runtime profile covers Hopper SM90 only")
+            unsupported.append("Pinned CUDA GLM DSA layout requires block_size=64")
         if model.provenance.get("mtp_included"):
             unsupported.append("MTP runtime/cache simulation is not implemented; use base model only")
     elif model.architecture in {"gqa", "gqa_moe", "gdn_moe", "gdn_qsa_moe"}:
@@ -195,7 +196,7 @@ def _validate(model: ModelProfile, h: Hardware, p: Parallelism, w: Workload,
             invalid.append(str(e))
     if not invalid and not unsupported:
         try:
-            kv_per_token(model, tp=p.tp, kv_quantization=kv, runtime=r)
+            kv_per_token(model, tp=p.tp, kv_quantization=kv, runtime=r, hardware=h)
         except (ValueError, TypeError) as e:
             unsupported.append(str(e))
     return invalid, unsupported
@@ -324,15 +325,20 @@ def _check(model: ModelProfile, *, hardware: Hardware | None = None,
     state_model = get_state_model(model)
     tokens = state_model.token_cap(tokens)
     load_workspace = adapter.load_workspace_bytes(model, p, r)
+    # Capacity fallback uses the explicitly selected reference layout; the
+    # target device still sets the budget, not the reference's KV format.
+    layout_hardware = None if capacity_only else h
+    resident_buffers = adapter.resident_buffers(model, p, w, r, hardware=layout_hardware)
     c = model.config
     for pp_rank, count in enumerate(counts):
-        allocation = state_model.allocate(model, p, w, r, kv, bounds[pp_rank], count)
+        allocation = state_model.allocate(model, p, w, r, kv, bounds[pp_rank], count,
+                                          hardware=layout_hardware)
         parts, allocated_tokens = allocation.kv_parts, allocation.allocated_tokens
         k, kv_required = parts["total"], allocation.cache_bytes
         mla_copies = 0
         index_workspace = 0
         if model.architecture == "mla_dsa":
-            index_workspace = adapter.workspace_bytes(w)
+            index_workspace = adapter.dsa_index_workspace_bytes(w, layout_hardware)
             # FP8 kv_b_proj retains BF16 decode projection views after dequantization.
             if adapter.projection_copies(fmt):
                 mla_copies = (count * c["kv_lora_rank"] * (c["num_attention_heads"] // p.tp)
@@ -353,7 +359,6 @@ def _check(model: ModelProfile, *, hardware: Hardware | None = None,
             "extra": r.extra_bytes,
         }
         runtime_parts.update(allocation.runtime_parts)
-        resident_buffers = adapter.resident_buffers(model, p, w, r)
         runtime_parts.update(resident_buffers)
         overhead = sum(runtime_parts.values())
         weight = local_weights[pp_rank]
@@ -362,7 +367,8 @@ def _check(model: ModelProfile, *, hardware: Hardware | None = None,
         serving_peak = weight + overhead + kv_required
         peak = max(load_peak, serving_peak)
         fixed_runtime = overhead - sum(allocation.runtime_parts.values())
-        capacity = state_model.capacity(model, p, w, r, kv, bounds[pp_rank], count, budget - weight - fixed_runtime)
+        capacity = state_model.capacity(model, p, w, r, kv, bounds[pp_rank], count,
+                                        budget - weight - fixed_runtime, hardware=layout_hardware)
         for dp_rank in range(p.dp):
             for tp_rank in range(p.tp):
                 rank = adapter.rank(pp_rank, dp_rank, tp_rank, p, r)
@@ -383,6 +389,13 @@ def _check(model: ModelProfile, *, hardware: Hardware | None = None,
     logical = logical_weight_bytes(model, fmt)
     available_weight_only = max(0, budget)
     args, engine_env = ({}, {}) if capacity_only else adapter.engine_config(model, h, p, w, r, fmt, kv, budget, counts, tokens)
+    checkpoint_revision = model.revision
+    if fmt == "fp8_block":
+        source = model.provenance.get("source")
+        # Earlier serialized profiles stored the FP8 revision at the top level.
+        checkpoint_revision = model.provenance.get("fp8_revision", model.revision)
+        if isinstance(source, dict):
+            checkpoint_revision = source.get("fp8_revision", checkpoint_revision)
     result.summary = {
         "num_gpus": p.num_gpus,
         "nodes_required": nodes,
@@ -397,7 +410,7 @@ def _check(model: ModelProfile, *, hardware: Hardware | None = None,
         "budget_weight_only_lower_bound_gpus": ceildiv(logical, available_weight_only) if available_weight_only else None,
         "bottleneck_rank": bottleneck.rank,
         "minimum_headroom_bytes": bottleneck.headroom_bytes,
-        "kv_bytes_per_token_logical": kv_per_token(model, kv_quantization=kv, runtime=r)["total"],
+        "kv_bytes_per_token_logical": kv_per_token(model, kv_quantization=kv, runtime=r, hardware=layout_hardware)["total"],
         "kv_bytes_per_token_per_rank_min": min(x.kv_bytes_per_token for x in result.ranks),
         "kv_bytes_per_token_per_rank_max": max(x.kv_bytes_per_token for x in result.ranks),
         # One logical token visits one DP replica; MLA/KV replicas across TP count here.
@@ -415,8 +428,7 @@ def _check(model: ModelProfile, *, hardware: Hardware | None = None,
         "load_workspace_bytes_per_rank": load_workspace,
         "weight_checkpoint": ("zai-org/GLM-5.1-FP8" if fmt == "fp8_block" else model.model_id)
             if model.model_id == "zai-org/GLM-5.1" else model.model_id,
-        "weight_checkpoint_revision": model.provenance.get("fp8_revision", model.revision)
-            if fmt == "fp8_block" else model.revision,
+        "weight_checkpoint_revision": checkpoint_revision,
     }
     if not passed:
         result.reasons.append(f"GPU rank {bottleneck.rank} exceeds budget by {-bottleneck.headroom_bytes} bytes")
