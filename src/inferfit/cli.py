@@ -8,13 +8,12 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Any
 
-from . import check, from_config, load_glm51, load_qwen3_235b, search, check_pd, PDPool, PDDemand, UnsupportedModelError
+from . import check, from_config, load_model, check_pd, PDPool, PDDemand, UnsupportedModelError
 from .profiles import load_model_profile, load_hardware_profile, load_runtime_profile
 from .types import Hardware, Parallelism, RuntimeProfile, Workload
-from .analysis import analyze, search_plans
+from .analysis import analyze, search
 from .analysis_types import MemoryAssumptions
 from .hardware import load_hardware
-
 
 def _object(cls: type, values: Any, base: Path = Path(".")):
     if cls is Hardware and isinstance(values, dict) and "catalog" in values:
@@ -45,12 +44,7 @@ def evaluate_document(document: dict[str, Any], *, mode: str = "check", base: Pa
     if not isinstance(document, dict) or set(document) - allowed:
         raise ValueError("Scenario must be an object with only documented top-level fields")
     ref = document.get("model", "glm-5.1")
-    if ref == "glm-5.1":
-        model = load_glm51()
-    elif ref == "qwen3-235b-a22b":
-        model = load_qwen3_235b()
-    elif isinstance(ref, str):
-        from .flagships import load_model
+    if isinstance(ref, str):
         model = load_model(ref)
     elif isinstance(ref,dict) and "profile_path" in ref:
         if set(ref)!={"profile_path"}:raise ValueError("model profile_path must be exclusive")
@@ -63,7 +57,7 @@ def evaluate_document(document: dict[str, Any], *, mode: str = "check", base: Pa
         config = ref.get("config") if "config" in ref else base / ref["config_path"]
         model = from_config(config, model_id=ref.get("id", "custom"), revision=ref.get("revision", "user-config"))
     else:
-        raise ValueError("model must be glm-5.1 or a config reference")
+        raise ValueError("model must be a catalog name, config reference, or model profile reference")
     if mode == "pd-check":
         if set(document)-{"model","prefill","decode","demand"}:
             raise ValueError("PD scenarios use only model, prefill, decode and demand")
@@ -79,8 +73,8 @@ def evaluate_document(document: dict[str, Any], *, mode: str = "check", base: Pa
                         demand=_object(PDDemand,document.get("demand",{}))).to_dict()
     if set(document)&{"prefill","decode","demand"}:
         raise ValueError("Use pd-check for PD fields")
-    if "assumptions" in document and mode not in {"analyze", "search-plans"}:
-        raise ValueError("assumptions requires analyze or search-plans")
+    if "assumptions" in document and mode not in {"analyze", "search"}:
+        raise ValueError("assumptions requires analyze or search")
     kwargs = {
         "hardware": _object(Hardware, document.get("hardware", {}),base),
         "workload": _object(Workload, document.get("workload", {})),
@@ -88,32 +82,30 @@ def evaluate_document(document: dict[str, Any], *, mode: str = "check", base: Pa
         "weight_quantization": document.get("weight_quantization", "fp8_block"),
         "kv_quantization": document.get("kv_quantization", "bf16"),
     }
-    if mode in {"analyze", "search-plans"}:
+    if mode in {"analyze", "search"}:
         kwargs["assumptions"] = _object(MemoryAssumptions, document.get("assumptions", {}))
     if mode in {"check", "analyze"}:
         if "search" in document:
             raise ValueError("check does not consume search options")
         evaluate = analyze if mode == "analyze" else check
         result = evaluate(model, parallelism=_object(Parallelism, document.get("parallelism", {})), **kwargs)
-    elif mode in {"search", "search-plans"}:
+    elif mode == "search":
         if "parallelism" in document:
-            raise ValueError("search uses search degrees; remove fixed parallelism")
+            raise ValueError("Search scenarios use degree ranges; remove fixed parallelism")
         options = document.get("search", {})
-        allowed_options = {"tp_values", "dp_values", "pp_values", "ep_values", "gpu_counts", "max_gpus", "limit", "optimize_pp"}
-        if mode == "search-plans":
-            allowed_options.add("policy")
+        allowed_options = {"tp_values", "dp_values", "pp_values", "ep_values", "gpu_counts",
+                           "max_gpus", "limit", "optimize_pp", "policy"}
         if not isinstance(options, dict) or set(options) - allowed_options:
             raise ValueError("Unknown search options")
-        evaluate = search_plans if mode == "search-plans" else search
-        result = evaluate(model, **options, **kwargs)
+        result = search(model, **options, **kwargs)
     else:
-        raise ValueError("mode must be check or search")
+        raise ValueError("mode must be check, analyze, pd-check, or search")
     return result.to_dict()
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="inferfit", description="InferFit: per-GPU LLM memory preflight and finite-layout search")
-    parser.add_argument("mode", choices=("check", "search", "pd-check", "models", "analyze", "search-plans", "hardware", "backends"))
+    parser.add_argument("mode", choices=("check", "search", "pd-check", "models", "analyze", "hardware", "backends"))
     parser.add_argument("scenario", type=Path, nargs="?", help="Scenario JSON (offline)")
     parser.add_argument("--output", type=Path, help="Write JSON result to a file")
     args = parser.parse_args(argv)
@@ -133,7 +125,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         document = json.loads(args.scenario.read_text())
         result = evaluate_document(document, mode=args.mode, base=args.scenario.resolve().parent)
-        encoded = json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
+        formatting = {"separators": (",", ":")} if args.mode == "search" else {"indent": 2}
+        encoded = json.dumps(result, ensure_ascii=False, allow_nan=False, **formatting) + "\n"
         if args.output:
             args.output.write_text(encoded)
         else:

@@ -20,10 +20,17 @@ class FlagshipTests(unittest.TestCase):
 
     def test_catalog_separates_recognition_from_capacity_support(self):
         entries = flagship_catalog()
-        self.assertEqual(len(entries), 7)
-        self.assertEqual(entries[2]["support"], "recognized_only")
+        entries_by_alias = {entry["alias"]: entry for entry in entries}
+        for alias, model_id in (
+            ("glm-5.1", "zai-org/GLM-5.1"),
+            ("qwen3-235b-a22b", "Qwen/Qwen3-235B-A22B"),
+        ):
+            self.assertEqual(entries_by_alias[alias]["id"], model_id)
+            self.assertEqual(load_model(alias), load_model(model_id))
+        unsupported = entries_by_alias["deepseek-v4.1-flash-1017"]
+        self.assertEqual(unsupported["support"], "recognized_only")
         with self.assertRaisesRegex(UnsupportedModelError, "FP4"):
-            load_model(entries[2]["id"])
+            load_model(unsupported["id"])
         with self.assertRaisesRegex(ValueError, "Unknown"):
             load_model("future-model")
         result = subprocess.run([sys.executable, "-m", "inferfit", "models"], capture_output=True, text=True)
@@ -99,7 +106,7 @@ class FlagshipTests(unittest.TestCase):
         kwargs = dict(hardware=Hardware(allow_cross_node_tp=True), runtime=self.runtime, weight_quantization="fp8")
         result = search(self.glm, tp_values=[8, 16], dp_values=[1], pp_values=[1], ep_values=[8], max_gpus=16, **kwargs)
         self.assertEqual(result.minimum_num_gpus, 16)
-        self.assertFalse(result.candidates[0].summary["deployment_verified"])
+        self.assertFalse(result.deployment_verified)
 
 
 if __name__ == "__main__":

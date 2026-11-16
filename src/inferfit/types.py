@@ -156,19 +156,3 @@ class CheckResult:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-
-
-@dataclass
-class SearchResult:
-    candidates: list[CheckResult]
-    evaluated: int
-    counts: dict[str, int]
-    minimum_num_gpus: int | None
-    search_space: dict[str, Any]
-    note: str = (
-        "Minimum is within the enumerated search space. Candidates passed memory "
-        "and static capability checks; no GPU execution or throughput validation."
-    )
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)

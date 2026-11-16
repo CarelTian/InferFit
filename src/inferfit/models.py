@@ -1,8 +1,7 @@
-"""Public model loaders and explicit config-converter registration."""
+"""Model config conversion and explicit adapter registration."""
 from __future__ import annotations
 import copy
 import json
-from importlib.resources import files
 from pathlib import Path
 from typing import Any
 from .errors import UnsupportedModelError
@@ -47,21 +46,3 @@ def from_config(config: dict[str, Any] | str | Path, **kwargs: Any) -> ModelProf
     if str(model_type).startswith("deepseek_v4"):
         raise UnsupportedModelError("DeepSeek V4.1 requires its own compressed/shared cache, Engram and quantization contract; original V4 Flash/Pro support does not imply V4.1 support")
     return gqa_profile(config, **kwargs)
-
-
-def load_glm51() -> ModelProfile:
-    data = files("inferfit").joinpath("data")
-    c = json.loads(data.joinpath("glm51-config.json").read_text())
-    source = json.loads(data.joinpath("sources.json").read_text())
-    p = glm_profile(c, model_id="zai-org/GLM-5.1", revision=source["bf16_revision"])
-    return ModelProfile(p.model_id, p.revision, p.config, p.tensors, p.architecture,
-                        {**p.provenance, **source})
-
-
-def load_qwen3_235b() -> ModelProfile:
-    data = files("inferfit").joinpath("data")
-    c = json.loads(data.joinpath("qwen3-235b-config.json").read_text())
-    source = json.loads(data.joinpath("qwen3-235b-source.json").read_text())
-    p = qwen3_moe_profile(c, model_id=source["model_id"], revision=source["revision"])
-    return ModelProfile(p.model_id,p.revision,p.config,p.tensors,p.architecture,
-                        {**p.provenance, "source":source})

@@ -27,18 +27,20 @@ class StateAllocation:
 
 
 class StandardStateModel:
-    def _cached_interval_cost(self, model, p, w, r, kv):
+    def _cached_interval_cost(self, model, p, w, r, kv, *, hardware=None):
         """Exact fallback for layouts without an additive layer contract.
 
         The cache belongs to this optimization only, never to a mutable model
         or a later request with a different workload/runtime.
         """
+        options = {} if hardware is None else {"hardware": hardware}
+
         @lru_cache(maxsize=None)
         def cost(start: int, end: int) -> int:
-            return self.allocate(model, p, w, r, kv, start, end - start).total_bytes
+            return self.allocate(model, p, w, r, kv, start, end - start, **options).total_bytes
         return cost
 
-    def prepare_interval_cost(self, model, p, w, r, kv):
+    def prepare_interval_cost(self, model, p, w, r, kv, *, hardware=None):
         """Compile exact interval bytes after check() has validated the inputs.
 
         These families have additive raw KV bytes and request-scoped state.
@@ -46,12 +48,12 @@ class StandardStateModel:
         QSA has shared side-state/workspace, so it keeps the exact fallback.
         """
         if model.architecture not in {"gqa", "gqa_moe", "mla_dsa", "gdn_moe"}:
-            return self._cached_interval_cost(model, p, w, r, kv)
+            return self._cached_interval_cost(model, p, w, r, kv, hardware=hardware)
         block_prefix, runtime_prefix = [0], [0]
         for layer in range(model.config["num_hidden_layers"]):
             # Reuse the allocator's geometry before overhead rounding. Using
             # its already-rounded cache_bytes would round each layer separately.
-            allocation = self.allocate(model, p, w, r, kv, layer, 1, tokens=0)
+            allocation = self.allocate(model, p, w, r, kv, layer, 1, tokens=0, hardware=hardware)
             block_prefix.append(block_prefix[-1] + allocation.kv_parts["total"] * w.block_size)
             runtime_prefix.append(runtime_prefix[-1] + sum(allocation.runtime_parts.values()))
         blocks = w.concurrency_per_dp * ceildiv(w.context_tokens, w.block_size) + 1
@@ -72,9 +74,9 @@ class StandardStateModel:
     def activation_width(self, model) -> int:
         return model.config["hidden_size"] * (model.config["hc_count"] if model.architecture == "gdn_qsa_moe" else 1)
 
-    def allocate(self, model, p, w, r, kv, start, count, *, tokens=None):
+    def allocate(self, model, p, w, r, kv, start, count, *, tokens=None, hardware=None):
         parts = self.per_token(model, tp=p.tp, layers=count, layer_start=start,
-                              kv_quantization=kv, runtime=r)
+                              kv_quantization=kv, runtime=r, hardware=hardware)
         tokens = w.concurrency_per_dp * ceildiv(w.context_tokens, w.block_size) * w.block_size if tokens is None else tokens
         allocated = tokens + w.block_size
         block_bytes = math.ceil(parts["total"] * w.block_size * r.kv_pool_overhead_ratio)
@@ -92,23 +94,24 @@ class StandardStateModel:
                 w.max_batch_tokens * (c["indexer_budget"] + c["indexer_compress_ratio"] - 1) * 4)
         return StateAllocation(parts, allocated, {"paged_kv": allocated // w.block_size * block_bytes}, runtime)
 
-    def capacity(self, model, p, w, r, kv, start, count, available):
+    def capacity(self, model, p, w, r, kv, start, count, available, *, hardware=None):
         """Preserve the SDK's linear-family hardware-capacity arithmetic."""
-        allocation = self.allocate(model, p, w, r, kv, start, count, tokens=0)
+        allocation = self.allocate(model, p, w, r, kv, start, count, tokens=0, hardware=hardware)
         block_bytes = allocation.cache_bytes
         available -= sum(allocation.runtime_parts.values())
         if block_bytes:
             return max(0, available // block_bytes - 1) * w.block_size
         return ceildiv(model.config["max_position_embeddings"] * w.concurrency_per_dp, w.block_size) * w.block_size
 
-    def capacity_from_allocations(self, model, p, w, r, kv, start, count, available):
+    def capacity_from_allocations(self, model, p, w, r, kv, start, count, available, *, hardware=None):
         """Aggregate token capacity at fixed request slots and runtime envelope."""
         # Binary search allocations, never divide a nonlinear state pool by a rate.
         upper = ceildiv(model.config["max_position_embeddings"] * w.concurrency_per_dp, w.block_size)
         lo, hi = 0, upper + 1
         while lo + 1 < hi:
             mid = (lo + hi) // 2
-            allocation = self.allocate(model, p, w, r, kv, start, count, tokens=mid * w.block_size)
+            allocation = self.allocate(model, p, w, r, kv, start, count, tokens=mid * w.block_size,
+                                       hardware=hardware)
             if allocation.total_bytes <= available:
                 lo = mid
             else:

@@ -762,6 +762,36 @@
       "path": "python/sglang/srt/utils/common.py",
       "url": "https://raw.githubusercontent.com/sgl-project/sglang/v0.5.23/python/sglang/srt/utils/common.py",
       "sha256": "60c3b514fcaba47dce2b1f7b74484db809c0d635ba646d94554552170cf01d73"
+    },
+    {
+      "path": "python/pyproject.toml",
+      "url": "https://raw.githubusercontent.com/sgl-project/sglang/v0.5.23/python/pyproject.toml",
+      "sha256": "c87afe1f55e4072c044e051dc8deb072b5c89cc5c2ffffca0e97e4cc0494ef73"
+    },
+    {
+      "path": "python/sglang/srt/arg_groups/overrides.py",
+      "url": "https://raw.githubusercontent.com/sgl-project/sglang/v0.5.23/python/sglang/srt/arg_groups/overrides.py",
+      "sha256": "9e0105985a1fdb23c1bfe6d81c29f77ff41cbefcc77680d12cb68bcdf27f769b"
+    },
+    {
+      "path": "python/sglang/kernels/ops/attention/flash_mla_sm120.py",
+      "url": "https://raw.githubusercontent.com/sgl-project/sglang/v0.5.23/python/sglang/kernels/ops/attention/flash_mla_sm120.py",
+      "sha256": "54e0d145a4a268af2ed1459abc0c98cac0b5d9a752e309f46b95ea03fa1eee29"
+    },
+    {
+      "path": "python/sglang/srt/layers/attention/trtllm_mla_backend.py",
+      "url": "https://raw.githubusercontent.com/sgl-project/sglang/v0.5.23/python/sglang/srt/layers/attention/trtllm_mla_backend.py",
+      "sha256": "29bd30e687f4df94e52524855e4ae8dab1bf811f22c3070172d3febdb1c18c35"
+    },
+    {
+      "path": "flashinfer/mla/_core.py",
+      "url": "https://raw.githubusercontent.com/flashinfer-ai/flashinfer/v0.7.2/flashinfer/mla/_core.py",
+      "sha256": "ff82b036d0f73a7d48df6bbccd663a12ec4ec2920ab54729a09ff79a0b85c8db"
+    },
+    {
+      "path": "flashinfer/utils.py",
+      "url": "https://raw.githubusercontent.com/flashinfer-ai/flashinfer/v0.7.2/flashinfer/utils.py",
+      "sha256": "abc97f7494cecc485395aeecd87d15e05ea518cf3d6ab1cc8c7e96fcdec3ad4d"
     }
   ],
   "cli_argument_fields": [
@@ -1287,5 +1317,12 @@
     "weight_loader_prefetch_checkpoints",
     "weight_loader_prefetch_num_threads",
     "weight_version"
-  ]
+  ],
+  "dsa_blackwell": {
+    "flashinfer_version": "0.7.2",
+    "flashinfer_workspace_bytes": 402653184,
+    "trtllm_kv_counter_batch_floor": 8192,
+    "trtllm_fp8_mla_bytes_per_layer_token": 576,
+    "flashinfer_sparse_mla_fp8_mla_bytes_per_layer_token": 656
+  }
 }

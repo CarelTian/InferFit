@@ -57,12 +57,14 @@ def optimize_pipeline(model: ModelProfile, *, parallelism: Parallelism,
     mla_per_layer = exemplar.runtime_breakdown["mla_bf16_projection_copies"] // count
     from .states import get_state_model
     state_model = get_state_model(model)
+    layout_hardware = None if _capacity_only else h
     allocation = state_model.allocate(model, p, w, r, initial.kv_quantization,
-                                      exemplar.layer_start, count)
+                                      exemplar.layer_start, count, hardware=layout_hardware)
     fixed_runtime = exemplar.runtime_peak_bytes - count * mla_per_layer - sum(allocation.runtime_parts.values())
     fixed_load = exemplar.load_peak_bytes - exemplar.weight_bytes - count * mla_per_layer
 
-    state_cost = state_model.prepare_interval_cost(model, p, w, r, initial.kv_quantization)
+    state_cost = state_model.prepare_interval_cost(model, p, w, r, initial.kv_quantization,
+                                                  hardware=layout_hardware)
     # State allocation and rounding do not depend on the PP stage number.
     # Build each feasible interval once; endpoint weights are added per stage.
     interval_peak = [[]]

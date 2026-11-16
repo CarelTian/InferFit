@@ -20,7 +20,7 @@ def page_bytes(page_size: int) -> int:
 
 
 class DeepSeekV4StateModel(StandardStateModel):
-    def prepare_interval_cost(self, model, p, w, r, kv):
+    def prepare_interval_cost(self, model, p, w, r, kv, *, hardware=None):
         """Price pool ownership counts using the allocator's actual raw bytes.
 
         Page padding is inside each coefficient. Pool-level overhead is rounded
@@ -68,7 +68,7 @@ class DeepSeekV4StateModel(StandardStateModel):
         return self.capacity_from_allocations(*args, **kwargs)
 
     def per_token(self, model, *, tp=1, layers=None, kv_quantization="fp8",
-                  runtime=None, layer_start=0):
+                  runtime=None, layer_start=0, hardware=None):
         if type(tp) is not int or tp <= 0:
             raise ValueError("tp must be positive")
         if runtime is None or (runtime.engine, runtime.version) != ("sglang", SGLANG_VERSION):
@@ -96,7 +96,7 @@ class DeepSeekV4StateModel(StandardStateModel):
     def activation_width(self, model):
         return model.config["hidden_size"] * model.config["hc_mult"]
 
-    def allocate(self, model, p, w, r, kv, start, count, *, tokens=None):
+    def allocate(self, model, p, w, r, kv, start, count, *, tokens=None, hardware=None):
         parts = self.per_token(model, tp=p.tp, layers=count, layer_start=start,
                               kv_quantization=kv, runtime=r)
         tokens = w.concurrency_per_dp * ceildiv(w.context_tokens, 256) * 256 if tokens is None else tokens

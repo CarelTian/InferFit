@@ -32,6 +32,8 @@ class VllmAdapter(EngineAdapter):
             errors.append("vLLM adapter supports EP=1 (off) or EP=TP*DP (enabled)")
         if model.architecture == "mla_dsa" and kv not in {"bf16", "fp8_ds_mla"}:
             errors.append("Hopper DSA backend supports bf16 or fp8_ds_mla KV")
+        if model.architecture == "mla_dsa" and h.compute_capability // 10 != 9:
+            errors.append("This vLLM DSA contract covers Hopper SM90 only")
         if h.available_nodes is not None and self.topology(h,p,r)[0] > h.available_nodes:
             errors.append("Placement exceeds available_nodes")
         crosses = p.tp > h.gpus_per_node or (

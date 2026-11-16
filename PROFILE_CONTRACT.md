@@ -1,9 +1,9 @@
-# InferFit 输入合同与扩展指南（0.1.0）
+# InferFit 输入合同与扩展指南（0.1.1）
 
 预检层接收统一的 `ModelProfile + Hardware + RuntimeProfile + Parallelism + Workload`。
 `check / search / optimize_pipeline / check_pd` 不依赖模型商品名或硬件 catalog 名称。
 
-新增 `analyze/search_plans` 将容量与执行兼容性分开；旧严格入口不会自动降级。
+`analyze` 与 `search` 分别报告容量和执行兼容性。`search` 默认只返回同时通过两项检查的候选。
 Hardware 可选 `vendor/device_family/device_api/memory_provenance/spec_source`，
 RuntimeProfile 可选 `distribution/build_revision/image/sdk_version`，旧 schema=1 文件继续可用。
 新分析 JSON 可指定 `hardware: {"catalog": "h100-sxm-80gb"}` 并覆盖实际容量等字段。
@@ -43,9 +43,9 @@ RuntimeProfile 可选 `distribution/build_revision/image/sdk_version`，旧 sche
 
 ```python
 import json
-from inferfit import load_qwen3_235b, model_profile_to_dict, load_model_profile
+from inferfit import load_model, model_profile_to_dict, load_model_profile
 
-manifest = model_profile_to_dict(load_qwen3_235b())
+manifest = model_profile_to_dict(load_model("qwen3-235b-a22b"))
 # 将身份、结构和整个张量清单替换为新模型事实，不能只改名称。
 manifest['reference_weight_bytes'] = {'bf16': 470187269120}
 with open('model.json', 'w') as f:
@@ -150,7 +150,7 @@ result = check(model, hardware=hardware, runtime=runtime,
                parallelism=Parallelism(tp=8, dp=1, ep=8, pp=1, num_gpus=8),
                weight_quantization='bf16')
 layouts = search(model, hardware=hardware, runtime=runtime,
-                 weight_quantization='bf16', max_gpus=32)
+                      weight_quantization='bf16', max_gpus=32)
 ```
 
 CLI 场景通过相对于场景文件的路径引用，不静默下载、合并或覆盖 profile：

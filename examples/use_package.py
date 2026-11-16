@@ -1,9 +1,9 @@
 """Run after installing the wheel, or with PYTHONPATH=src."""
 import json
 
-from inferfit import Hardware, Parallelism, Workload, check, load_glm51, search
+from inferfit import Hardware, Parallelism, Workload, check, load_model, search
 
-model = load_glm51()
+model = load_model("glm-5.1")
 hardware = Hardware(memory_bytes=80_000_000_000)
 workload = Workload(context_tokens=8192, concurrency_per_dp=1)
 result = check(

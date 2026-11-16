@@ -7,7 +7,7 @@ from inferfit.cli import evaluate_document
 
 class ProfileTests(unittest.TestCase):
     def test_real_model_roundtrips_both_engines(self):
-        for model in [load_qwen3_235b(),load_glm51()]:
+        for model in [load_model("qwen3-235b-a22b"),load_model("glm-5.1")]:
             clone=load_model_profile(model_profile_to_dict(model))
             for runtime in [RuntimeProfile(),RuntimeProfile.sglang()]:
                 plan=Parallelism(8,1,8,2,16)
@@ -18,7 +18,7 @@ class ProfileTests(unittest.TestCase):
                 self.assertEqual(logical_weight_bytes(model),logical_weight_bytes(clone))
 
     def test_arbitrary_names_keep_semantic_placement(self):
-        doc=model_profile_to_dict(load_qwen3_235b())
+        doc=model_profile_to_dict(load_model("qwen3-235b-a22b"))
         a=load_model_profile(doc)
         for i,tensor in enumerate(doc['tensors']):tensor['name']=f'custom_tensor_{i}'
         b=load_model_profile(doc)
@@ -30,7 +30,7 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(x.ranks,y.ranks)
 
     def test_search_and_pd_reuse_external_profile(self):
-        m=load_model_profile(model_profile_to_dict(load_qwen3_235b()))
+        m=load_model_profile(model_profile_to_dict(load_model("qwen3-235b-a22b")))
         r=search(m,tp_values=[8],dp_values=[1],pp_values=[1,2],max_gpus=16,weight_quantization='bf16')
         self.assertTrue(r.candidates)
         plan=Parallelism(8,1,8,1,8)
@@ -44,12 +44,12 @@ class ProfileTests(unittest.TestCase):
             'compute_capability':90,'gpus_per_node':4}}
         h=load_hardware_profile(d)
         self.assertEqual(h.name,'new-cuda-board')
-        self.assertTrue(check(load_qwen3_235b(),hardware=h,parallelism=Parallelism(4,1,4,2,8),weight_quantization='bf16').memory_pass)
+        self.assertTrue(check(load_model("qwen3-235b-a22b"),hardware=h,parallelism=Parallelism(4,1,4,2,8),weight_quantization='bf16').memory_pass)
         d['hardware'].update(platform='custom',compute_capability=None)
-        self.assertEqual(check(load_qwen3_235b(),hardware=load_hardware_profile(d)).status,'unsupported')
+        self.assertEqual(check(load_model("qwen3-235b-a22b"),hardware=load_hardware_profile(d)).status,'unsupported')
 
     def test_explicit_profile_version_and_unknown_keys(self):
-        doc=model_profile_to_dict(load_qwen3_235b())
+        doc=model_profile_to_dict(load_model("qwen3-235b-a22b"))
         for modified in [{**doc,'schema_version':2},{**doc,'typo':1},{**doc,'memory_family':'new-cache'},
                          {**doc,'tensors':[]}]:
             with self.assertRaises(ValueError):load_model_profile(modified)
@@ -58,7 +58,7 @@ class ProfileTests(unittest.TestCase):
             with self.assertRaises(ValueError):load_model_profile(modified)
 
     def test_roles_owners_and_inventory_reference(self):
-        doc=model_profile_to_dict(load_qwen3_235b())
+        doc=model_profile_to_dict(load_model("qwen3-235b-a22b"))
         doc['reference_weight_bytes']={'bf16':470187269120}
         load_model_profile(doc)
         bad=copy.deepcopy(doc);bad['tensors'].pop()
@@ -69,7 +69,7 @@ class ProfileTests(unittest.TestCase):
         with self.assertRaises(ValueError):load_model_profile(bad)
 
     def test_model_converter_registration(self):
-        original=load_qwen3_235b()
+        original=load_model("qwen3-235b-a22b")
         def convert(c,**kwargs):
             self.assertEqual(c['model_type'],'test_custom_moe')
             return replace(original,model_id=kwargs.get('model_id','custom'))
@@ -91,7 +91,7 @@ class ProfileTests(unittest.TestCase):
         r=load_runtime_profile({'schema_version':1,'kind':'runtime','runtime':{'engine':'sglang','version':'0.5.23'}})
         self.assertEqual(r.name,RuntimeProfile.sglang().name)
         r=replace(r,version='latest')
-        self.assertEqual(check(load_glm51(),runtime=r).status,'unsupported')
-        c=copy.deepcopy(load_glm51().config);c['kv_lora_rank']=256
+        self.assertEqual(check(load_model("glm-5.1"),runtime=r).status,'unsupported')
+        c=copy.deepcopy(load_model("glm-5.1").config);c['kv_lora_rank']=256
         from inferfit.models import glm_profile
         self.assertEqual(check(glm_profile(c)).status,'unsupported')

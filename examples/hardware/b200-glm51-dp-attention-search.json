@@ -1,0 +1,42 @@
+{
+  "model": "glm-5.1",
+  "hardware": {
+    "catalog": "b200-180gb",
+    "gpus_per_node": 8,
+    "available_nodes": 1
+  },
+  "runtime": {
+    "engine": "sglang",
+    "sglang_dp_attention": true
+  },
+  "weight_quantization": "fp8_block",
+  "kv_quantization": "fp8",
+  "workload": {
+    "context_tokens": 8192,
+    "concurrency_per_dp": 1,
+    "max_batch_tokens": 2048,
+    "block_size": 64
+  },
+  "search": {
+    "tp_values": [
+      1,
+      2,
+      4
+    ],
+    "dp_values": [
+      2,
+      4
+    ],
+    "pp_values": [
+      1,
+      2,
+      3
+    ],
+    "ep_values": [
+      2,
+      4,
+      8
+    ],
+    "max_gpus": 8
+  }
+}

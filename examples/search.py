@@ -1,9 +1,9 @@
 from inferfit import (
     GiB, Hardware, RuntimeProfile, Workload,
-    load_glm51, search,
+    load_model, search,
 )
 
-model = load_glm51()
+model = load_model("glm-5.1")
 
 result = search(
     model,
@@ -31,12 +31,13 @@ result = search(
 )
 
 print("评估次数：", result.evaluated)
-print("状态统计：", result.counts)
+print("容量统计：", result.capacity_counts)
+print("兼容性统计：", result.compatibility_counts)
 
 for candidate in result.candidates:
     print(
         candidate.parallelism,
-        "PP 分层：", candidate.summary["stage_layers"],
+        "PP 分层：", candidate.parallelism.stage_layers,
         "最小余量 GiB：",
-        candidate.summary["minimum_headroom_bytes"] / GiB,
+        candidate.capacity.summary["minimum_headroom_bytes"] / GiB,
     )

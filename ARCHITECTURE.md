@@ -2,8 +2,8 @@
 
 ## 容量与后端兼容性分离
 
-新增 `analyze / search_plans`；旧 `check / search / optimize_pipeline / check_pd`
-保持严格入口。新入口将显存供给、内存需求、执行能力和实机验证分别表达：
+`analyze` 与 `search` 分别报告容量、执行兼容性和实机验证。
+`search` 默认要求静态兼容，也支持仅按容量筛选：
 
 ```text
 Hardware(容量/身份/拓扑) + RuntimeProfile(构建/预留) + 模型/负载/并行
@@ -29,7 +29,7 @@ Hardware(容量/身份/拓扑) + RuntimeProfile(构建/预留) + 模型/负载/�
 条件通过。未知缓存/转换规则不按零计费，而是返回 missing_data；复杂模型须显式选择
 已经固定版本的参考布局。引用某布局是容量假设，不继承它对目标硬件的运行保证。
 
-分析结果定义在 `analysis_types.py`，不向旧 CheckResult/SearchResult JSON 强行加入字段。
+分析和搜索的结果定义在 `analysis_types.py`。搜索候选包含可复检的并行布局、容量摘要和兼容性状态。
 `analysis.py` 负责组合两条结果轴和搜索策略；`engines/generic.py` 是容量布局，
 其 validate 始终拒绝将自身用作执行后端；`estimator._check(capacity_only=True)`
 复用相同的逐 rank 数学路径，绕过硬件算子/launcher 限制，不伪造 NVIDIA 设备。
@@ -150,7 +150,7 @@ V4 保留各物理池独立取整，固定 metadata 每 stage 只计一次。
 
 唯一版本常量是 `engine_versions.SGLANG_VERSION`，上游工厂为
 `RuntimeProfile.sglang()`。未知构建不会自动替换成上游版本。版本匹配失败仍拒绝严格检查；
-分析接口可以给出条件容量。项目版本统一由 `_version.py` 定义为 0.1.0，构建元数据从该模块读取。
+分析接口可以给出条件容量。项目版本统一由 `_version.py` 定义为 0.1.1，构建元数据从该模块读取。
 
 `__init__.py` 使用一个明确的 `__all__`。不再维护新旧导出列表、重复工厂和适配器
 别名。真正的模型转换、显存检查、组合搜索与 PD 检查仍是独立职责，不因函数较早

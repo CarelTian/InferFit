@@ -4,7 +4,7 @@ No network simulator or connector launch guarantee is implied.
 """
 from dataclasses import dataclass, asdict, field, replace
 from .types import Hardware, Parallelism, RuntimeProfile, Workload, ModelProfile, CheckResult
-from .estimator import check, kv_per_token
+from .estimator import check
 
 @dataclass(frozen=True)
 class PDPool:
@@ -79,8 +79,13 @@ def check_pd(model: ModelProfile, *, prefill: PDPool, decode: PDPool,
     status=next((r.status for r in results if r.status in {"invalid","unsupported"}),None)
     if status:
         return PDResult(status,None,pr,dr,[reason for r in results for reason in r.reasons])
+    prefill_bytes = pr.summary["kv_bytes_per_token_logical"]
+    decode_bytes = dr.summary["kv_bytes_per_token_logical"]
+    if prefill_bytes != decode_bytes:
+        return PDResult("unsupported", None, pr, dr,
+                        ["P/D device backends use different KV storage layouts; layout conversion is not modeled"])
     passed=bool(pr.memory_pass and dr.memory_pass)
-    payload=kv_per_token(model,tp=1,kv_quantization=prefill.kv_quantization,runtime=prefill.runtime)["total"]*d.prompt_tokens
+    payload = prefill_bytes * d.prompt_tokens
     return PDResult("pass" if passed else "fail",passed,pr,dr,
         [reason for r in results for reason in r.reasons],{
         "num_gpus_total":p.num_gpus+dplan.num_gpus,

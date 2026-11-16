@@ -2,11 +2,12 @@
 from __future__ import annotations
 from ..engines import get_adapter
 from ..engine_versions import SGLANG_VERSION
-from ..types import ModelProfile, RuntimeProfile
+from ..types import Hardware, ModelProfile, RuntimeProfile
 
 def kv_per_token(model: ModelProfile, *, tp: int = 1, layers: int | None = None,
                  kv_quantization: str = "bf16",
-                 runtime: RuntimeProfile | None = None, layer_start: int = 0) -> dict[str, int]:
+                 runtime: RuntimeProfile | None = None, layer_start: int = 0,
+                 hardware: Hardware | None = None) -> dict[str, int]:
     """Physical payload bytes/token on one GPU, before block/pool rounding."""
     if type(tp) is not int or tp <= 0:
         raise ValueError("tp must be positive")
@@ -27,7 +28,10 @@ def kv_per_token(model: ModelProfile, *, tp: int = 1, layers: int | None = None,
         elif dtype == ("fp8_e4m3" if adapter.engine == "sglang" else "fp8_ds_mla"):
             if c["kv_lora_rank"] != 512 or c["qk_rope_head_dim"] != 64:
                 raise ValueError("fp8_ds_mla backend requires latent=512 and RoPE=64")
-            latent, rope, scales = 512, 128, 16
+            if adapter.engine == "sglang" and "trtllm" in adapter.dsa_backends(hardware, dtype):
+                latent, rope, scales = 512, 64, 0
+            else:
+                latent, rope, scales = 512, 128, 16
         else:
             raise ValueError(f"{adapter.engine} MLA DSA supports bf16 or its engine-specific FP8 format (fp8 alias)")
         if c["index_head_dim"] != 128:

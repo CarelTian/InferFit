@@ -25,11 +25,7 @@ def run(include_search=False):
                              pp_values=[1] if page == 64 else range(1, 17), max_gpus=32,
                              limit=3, **options)
             output.update(minimum_num_gpus=layouts.minimum_num_gpus, evaluated=layouts.evaluated,
-                          candidates=[dict(tp=c.parallelism.tp, ep=c.parallelism.ep,
-                              dp=c.parallelism.dp, pp=c.parallelism.pp,
-                              stage_layers=c.summary["stage_layers"],
-                              engine_args=c.summary["engine_args"], engine_env=c.summary["engine_env"])
-                              for c in layouts.candidates])
+                          candidates=layouts.to_dict()["candidates"])
         print(json.dumps(output, ensure_ascii=False, indent=2))
 
 
