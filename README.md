@@ -191,7 +191,7 @@ hardware = load_hardware("b200-180gb", memory_bytes=179_000_000_000,
 
 Runnable check/search/P-D examples are in [`examples/hardware`](examples/hardware).
 
-### GLM-5.1 DP Attention
+### SGLang DP Attention
 
 Set `RuntimeProfile.sglang(sglang_dp_attention=True)` or
 `"sglang_dp_attention": true` in a SGLang scenario's runtime object. In InferFit,
@@ -199,6 +199,23 @@ Set `RuntimeProfile.sglang(sglang_dp_attention=True)` or
 with `tp=4, dp=2, ep=8, pp=1` maps to SGLang `tp_size=8, attn_dp_size=2,
 dp_size=1, ep_size=8`. To search DP Attention layouts exclusively, use DP values
 of at least two.
+
+DP Attention does not require MLA. The pinned SGLang 0.5.23 adapter supports
+Qwen3 dense GQA, Qwen3 MoE (including Qwen3-235B-A22B), and GLM-5.1 MLA/DSA.
+Attention weights and KV use the per-group `tp`; dense FFNs and the untied LM
+head use native `tp * dp`, while routed experts use EP and residual tensor
+parallelism. See the pinned [Qwen3 dense implementation](https://github.com/sgl-project/sglang/blob/v0.5.23/python/sglang/srt/models/qwen3.py)
+and [Qwen3 MoE implementation](https://github.com/sgl-project/sglang/blob/v0.5.23/python/sglang/srt/models/qwen3_moe.py).
+MLA's KV replication savings motivate a performance recommendation, not an
+architecture eligibility rule; throughput benefits require workload benchmarks.
+
+Llama/Qwen2 dense DP Attention is outside this adapter's inspected placement
+coverage: their pinned attention implementation uses full native TP rather than
+the attention group width. Hybrid GDN/QSA, shared-index GLM, and compressed V4
+retain their separate state/weight mapping limits below. An `unsupported` result
+for these layouts describes InferFit's coverage, not a general SGLang MLA requirement.
+
+#### GLM-5.1 DSA backends
 
 | GPUs | KV format | DSA prefill / decode |
 | --- | --- | --- |
@@ -222,7 +239,7 @@ assumed runtime reserves. GPU startup and network behavior require deployment te
 
 | Model or family | Scope |
 | --- | --- |
-| Supported Llama/Qwen dense GQA and Qwen3-235B-A22B | Resident weight inventory, TP KV-head sharding or replication. |
+| Supported Llama/Qwen dense GQA and Qwen3-235B-A22B | Resident weight inventory, TP KV-head sharding or replication; SGLang attention DP for Qwen3 dense/MoE. |
 | GLM-5.1 | MLA latent/RoPE/index state, TP/EP/PP and constrained attention DP. |
 | GLM-5.3 | Shared-index ownership; currently DP=1, PP=1 and BF16 KV. |
 | Qwen3.8-2.4T-A95B | GDN recurrent state and full-attention KV; BF16 contract. |

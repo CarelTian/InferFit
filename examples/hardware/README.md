@@ -43,5 +43,5 @@ making a deployment decision.
 The GLM-5.1 scenarios use SGLang DP Attention with FP8 weights and FP8 KV.
 The fixed B200 layout uses two attention groups of four GPUs each. The search
 also evaluates smaller attention groups and PP partitions within eight GPUs.
-See the [backend matrix](../../README.md#glm-51-dp-attention) for GPU and KV support.
+See the [backend matrix](../../README.md#glm-51-dsa-backends) for GPU and KV support.
 Runtime reserves are assumed. Deployments require GPU execution tests.
