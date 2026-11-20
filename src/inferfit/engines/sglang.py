@@ -75,8 +75,11 @@ class SglangAdapter(EngineAdapter):
             errors.append("SGLang chunked prefill size must be divisible by page_size")
         if native % p.ep:
             errors.append("SGLang EP must divide native TP (TP*DP with DP attention, otherwise TP)")
-        if r.sglang_dp_attention and model.architecture != "mla_dsa":
-            errors.append("This SGLang DP-attention adapter is validated only for GLM MLA/DSA")
+        if (r.sglang_dp_attention and p.dp > 1 and model.architecture == "gqa"
+                and model.config.get("model_type") != "qwen3"):
+            errors.append(f"InferFit has no inspected SGLang {self.version} DP-attention mapping "
+                          f"for dense model_type={model.config.get('model_type')!r}; "
+                          "this is an adapter coverage limit, not an MLA requirement")
         if r.sglang_dp_attention and w.max_batch_tokens * p.dp > r.max_batch_tokens_supported:
             errors.append("Aggregate DP-attention batch exceeds the SGLang runtime envelope")
         if p.dp > 1 and not r.sglang_dp_attention and p.num_gpus > h.gpus_per_node:

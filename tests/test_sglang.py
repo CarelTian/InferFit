@@ -113,6 +113,60 @@ class SglangTests(unittest.TestCase):
         self.assertEqual((result.ranks[4].pp_rank, result.ranks[4].dp_rank), (0, 1))
         self.assertEqual((result.ranks[8].pp_rank, result.ranks[8].dp_rank), (1, 0))
 
+    def test_qwen3_moe_dp_attention_check_and_search(self):
+        model = load_model("qwen3-235b-a22b")
+        runtime = RuntimeProfile.sglang(sglang_dp_attention=True)
+        plan = Parallelism(4, 2, 8, 1, 8)
+        result = check(model, parallelism=plan, runtime=runtime, weight_quantization="bf16")
+        self.assertEqual(result.status, "pass")
+        args = result.summary["engine_args"]
+        self.assertEqual((args["tp_size"], args["attn_dp_size"], args["dp_size"], args["ep_size"]),
+                         (8, 2, 1, 8))
+        self.assertEqual(result.ranks[0].kv_bytes_per_token, 94 * 128 * 2 * 2)
+        self.assertEqual(result.ranks[0].kv_allocated_tokens, 8192 + 64)
+        self.assertEqual(result.ranks[0].kv_required_bytes, (8192 + 64) * 48128)
+        self.assertFalse(result.summary["deployment_verified"])
+        found = search(model, runtime=runtime, weight_quantization="bf16", gpu_counts=[8],
+                       tp_values=[4], dp_values=[2], pp_values=[1], ep_values=[8], max_gpus=8)
+        self.assertEqual(found.minimum_num_gpus, 8)
+        self.assertEqual(found.candidates[0].parallelism, replace(plan, stage_layers=(94,)))
+
+    def test_dense_qwen3_dp_attention_weight_and_cache_geometry(self):
+        model = from_config(dict(model_type="qwen3", hidden_size=512, intermediate_size=1024,
+                                 num_hidden_layers=4, num_attention_heads=8, num_key_value_heads=2,
+                                 head_dim=64, vocab_size=1024, max_position_embeddings=32768))
+        runtime = RuntimeProfile.sglang(sglang_dp_attention=True)
+        result = check(model, runtime=runtime, parallelism=Parallelism(2, 2, 1, 1, 4),
+                       weight_quantization="bf16")
+        self.assertEqual(result.status, "pass")
+        # Attention and embedding use TP2; dense FFN and untied head use native TP4.
+        embedding = 1024 * 512 * 2 // 2
+        output = 1024 * 512 * 2 // 4
+        attention = (512 * 512 + 2 * 128 * 512 + 512 * 512) * 2 // 2
+        ffn = 3 * 512 * 1024 * 2 // 4
+        norms = 2 * 512 * 2 + 2 * 64 * 2
+        self.assertEqual(result.ranks[0].weight_bytes,
+                         embedding + output + 512 * 2 + 4 * (attention + ffn + norms))
+        self.assertEqual(result.ranks[0].kv_bytes_per_token, 4 * 64 * 2 * 2)
+        # With four KV heads, attention TP2 stores two heads per rank, not native TP4's one.
+        sharded = from_config({**model.config, "num_key_value_heads": 4})
+        result = check(sharded, runtime=runtime, parallelism=Parallelism(2, 2, 1, 1, 4),
+                       weight_quantization="bf16")
+        self.assertEqual(result.status, "pass")
+        self.assertEqual(result.ranks[0].kv_bytes_per_token, 4 * 2 * 64 * 2 * 2)
+        replicated = check(model, runtime=runtime, parallelism=Parallelism(4, 2, 1, 1, 8),
+                           weight_quantization="bf16")
+        self.assertEqual(replicated.status, "pass")
+        self.assertEqual(replicated.ranks[0].kv_bytes_per_token, 4 * 64 * 2 * 2)
+
+    def test_dp_attention_keeps_hybrid_mapping_boundary(self):
+        result = check(load_model("qwen3.8-2.4t-a95b"),
+                       runtime=RuntimeProfile.sglang(sglang_dp_attention=True),
+                       parallelism=Parallelism(4, 2, 8, 1, 8), weight_quantization="bf16")
+        self.assertEqual(result.status, "unsupported")
+        self.assertTrue(any("layer-boundary mappings" in reason for reason in result.reasons))
+        self.assertFalse(any("only for GLM MLA/DSA" in reason for reason in result.reasons))
+
     def test_blackwell_dsa_backends_choose_matching_fp8_kv_rows(self):
         runtime = RuntimeProfile.sglang(sglang_dp_attention=True)
         plan = Parallelism(4, 2, 8, 1, 8)
@@ -268,15 +322,21 @@ class SglangTests(unittest.TestCase):
         self.assertEqual(result["summary"]["engine_version"], "0.5.23")
         self.assertEqual(result["summary"]["runtime_profile"], self.runtime.name)
 
-    def test_generic_gqa_and_unknown_feature_boundary(self):
+    def test_dense_gqa_dp_attention_requires_inspected_model_mapping(self):
         model = from_config(dict(model_type="llama", hidden_size=512, intermediate_size=1024,
                                  num_hidden_layers=4,num_attention_heads=8,num_key_value_heads=2,
                                  head_dim=64,vocab_size=1024,max_position_embeddings=32768))
         self.assertEqual(kv_per_token(model, runtime=self.runtime,kv_quantization="fp8")["total"],1024)
         result = check(model, runtime=self.runtime, parallelism=Parallelism(2,2,1,1,4),weight_quantization="bf16")
         self.assertTrue(result.memory_pass)
-        self.assertEqual(check(model, runtime=RuntimeProfile.sglang(sglang_dp_attention=True),
-                               parallelism=Parallelism(2,2,1,1,4)).status,"unsupported")
+        for model_type in ("llama", "qwen2"):
+            with self.subTest(model_type=model_type):
+                dense = from_config({**model.config, "model_type": model_type})
+                result = check(dense, runtime=RuntimeProfile.sglang(sglang_dp_attention=True),
+                               parallelism=Parallelism(2, 2, 1, 1, 4), weight_quantization="bf16")
+                self.assertEqual(result.status, "unsupported")
+                self.assertTrue(any("dense model_type=" in reason for reason in result.reasons))
+                self.assertFalse(any("only for GLM MLA/DSA" in reason for reason in result.reasons))
 
 
 if __name__ == "__main__":
