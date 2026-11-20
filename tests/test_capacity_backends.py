@@ -123,7 +123,7 @@ def test_model_specific_state_is_never_silently_replaced_by_gqa():
 def test_native_v4_reference_keeps_compressor_states_and_scale_layouts():
     result = analyze(load_model("deepseek-v4-flash"), hardware=custom_hardware(),
         runtime=RuntimeProfile.sglang(), assumptions=REF, weight_quantization="native",
-        kv_quantization="fp8", workload=Workload(block_size=256), parallelism=Parallelism(4, 1, 4, 1, 4))
+        kv_quantization="fp8", parallelism=Parallelism(4, 1, 4, 1, 4))
     assert result.capacity.status == "pass"
     assert result.capacity.summary["kv_bytes_per_token_logical"] == 29055
     assert result.capacity.ranks[0].runtime_breakdown["c4_compressor_state"] > 0
@@ -138,8 +138,9 @@ def test_reference_is_explicit_pinned_and_preserves_missing_layout_constraints()
     with pytest.raises(ValueError):
         analyze(dense(), assumptions=MemoryAssumptions("typo"))
     result = analyze(load_model("deepseek-v4-flash"), hardware=custom_hardware(),
-        assumptions=REF, weight_quantization="native", kv_quantization="fp8", parallelism=Parallelism(4, 1, 4, 1, 4))
-    assert result.capacity.status == "unknown"  # Default page=64 is not this layout.
+        assumptions=REF, weight_quantization="native", kv_quantization="fp8",
+        workload=Workload(block_size=64), parallelism=Parallelism(4, 1, 4, 1, 4))
+    assert result.capacity.status == "unknown"
     assert "page_size=256" in " ".join(result.capacity.missing_data)
 
 

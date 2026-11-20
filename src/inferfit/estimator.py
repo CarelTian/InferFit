@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import fields
+from dataclasses import fields, replace
 
 from .tensor_rules import first_stage
 from .engine_versions import SGLANG_VERSION
@@ -12,6 +12,23 @@ from .types import (CheckResult, Hardware, ModelProfile, Parallelism, RankMemory
                     RuntimeProfile, TensorSpec, Workload)
 
 WEIGHT_ALIASES = {"fp8": "fp8_block", "bfloat16": "bf16", "float16": "fp16"}
+
+
+def _resolve_workload(model: ModelProfile, h: Hardware, w: Workload, r: RuntimeProfile) -> Workload:
+    if w.block_size is not None:
+        return w
+    if model.architecture == "mla_dsa":
+        block_size = 64  # Pinned GLM DSA layout in either engine.
+    elif r.engine == "sglang":
+        if model.architecture == "dsv4":
+            block_size = 256
+        elif model.architecture == "gdn_qsa_moe" or h.compute_capability in (100, 103):
+            block_size = 64  # Inspected QSA layout or Blackwell TRT-LLM MHA.
+        else:
+            block_size = 1  # SGLang CUDA default for ordinary attention.
+    else:
+        block_size = 16  # vLLM default and the generic paged-memory assumption.
+    return replace(w, block_size=block_size)
 
 
 def ceildiv(a: int, b: int) -> int:
@@ -278,6 +295,7 @@ def _check(model: ModelProfile, *, hardware: Hardware | None = None,
            kv_quantization: str = "bf16", capacity_only: bool = False) -> CheckResult:
     h, p = hardware or Hardware(), parallelism or Parallelism()
     w, r = workload or Workload(), runtime or RuntimeProfile()
+    w = _resolve_workload(model, h, w, r)
     fmt = WEIGHT_ALIASES.get(weight_quantization, weight_quantization)
     try:
         adapter = get_adapter(r)

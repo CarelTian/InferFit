@@ -128,6 +128,12 @@ compatibility status. This distinction does not change deployment verification.
   `ceil(N / DP)` slots. Leave `workload.concurrency_per_dp` at its default when
   supplying a total. Without a total, the per-replica workload is used as supplied.
 - `context_tokens` includes prompt tokens and generated or reserved output tokens.
+- An omitted `workload.block_size` uses the page size for the selected memory
+  layout. GLM DSA and SGLang Flash-Next QSA use 64 tokens, and SGLang DeepSeek V4
+  uses 256. Ordinary vLLM and generic capacity estimates use 16. Ordinary CUDA
+  SGLang uses 1, with 64 for the Blackwell SM100/SM103 TRT-LLM MHA layout.
+  An explicit `block_size` is used as supplied and checked by the selected adapter.
+  P/D preflight uses a shared page size for both pools.
 - `stage_layers` specifies contiguous PP layer counts; `optimize_pp=True` searches them.
 - For the automatic SGLang search, candidates are ranked by GPU count, node count,
   and then largest minimum GPU headroom. Explicit DP searches and other engines

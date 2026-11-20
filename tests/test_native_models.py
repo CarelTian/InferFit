@@ -177,7 +177,7 @@ class NativeModelTests(unittest.TestCase):
         self.assertEqual(self.run_check(hardware=replace(h, memory_bytes=peak-1)).status, "fail")
 
     def test_v4_contract_emits_native_backend_and_pool_controls(self):
-        result = self.run_check()
+        result = self.run_check(workload=Workload())
         args, env = result.summary["engine_args"], result.summary["engine_env"]
         self.assertEqual(args["moe_runner_backend"], "flashinfer_mxfp4")
         self.assertEqual(args["dsv4_attn_backend"], "flashmla")
@@ -189,7 +189,7 @@ class NativeModelTests(unittest.TestCase):
 
     def test_v4_rejects_other_versions_precision_and_geometry(self):
         for values in [dict(runtime=RuntimeProfile.sglang(version="0.5.10")), dict(runtime=RuntimeProfile()),
-                       dict(kv_quantization="bf16"), dict(workload=Workload()),
+                       dict(kv_quantization="bf16"), dict(workload=Workload(block_size=64)),
                        dict(hardware=Hardware(compute_capability=80)),
                        dict(hardware=Hardware(compute_capability=100)),
                        dict(parallelism=Parallelism(tp=4, ep=2, num_gpus=4)),

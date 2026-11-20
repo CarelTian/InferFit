@@ -4,7 +4,7 @@ No network simulator or connector launch guarantee is implied.
 """
 from dataclasses import dataclass, asdict, field, replace
 from .types import Hardware, Parallelism, RuntimeProfile, Workload, ModelProfile, CheckResult
-from .estimator import check
+from .estimator import _resolve_workload, check
 
 @dataclass(frozen=True)
 class PDPool:
@@ -66,6 +66,10 @@ def check_pd(model: ModelProfile, *, prefill: PDPool, decode: PDPool,
         return PDResult("unsupported",None,reasons=["Only identical P/D layouts supported; KV reshards/routing are not modeled"])
     if prefill.runtime.sglang_dp_attention!=decode.runtime.sglang_dp_attention:
         return PDResult("unsupported",None,reasons=["P/D attention meshes differ"])
+    # Both pools must agree on the page size. The larger size also works on the
+    # CUDA layouts whose standalone default is a single token.
+    block_size = max(_resolve_workload(model, pool.hardware, Workload(), pool.runtime).block_size
+                     for pool in (prefill, decode))
     results=[]
     for pool,context,concurrency in (
         (prefill,d.prompt_tokens,d.prefill_concurrency_per_dp+d.inflight_handoffs_per_dp),
@@ -73,7 +77,7 @@ def check_pd(model: ModelProfile, *, prefill: PDPool, decode: PDPool,
         runtime=replace(pool.runtime,extra_bytes=pool.runtime.extra_bytes+pool.transfer_buffer_bytes_per_gpu)
         results.append(check(model,hardware=pool.hardware,parallelism=pool.parallelism,
             workload=Workload(context_tokens=context,concurrency_per_dp=concurrency,
-                              max_batch_tokens=pool.max_batch_tokens),runtime=runtime,
+                              max_batch_tokens=pool.max_batch_tokens, block_size=block_size),runtime=runtime,
             weight_quantization=pool.weight_quantization,kv_quantization=pool.kv_quantization))
     pr,dr=results
     status=next((r.status for r in results if r.status in {"invalid","unsupported"}),None)

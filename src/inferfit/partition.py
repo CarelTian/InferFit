@@ -6,7 +6,7 @@ from dataclasses import replace
 
 from .tensor_rules import first_stage
 from .engines import get_adapter
-from .estimator import _tensor_local, check, _check, storage_bytes
+from .estimator import _check, _resolve_workload, _tensor_local, check, storage_bytes
 from .types import CheckResult, Hardware, ModelProfile, Parallelism, RuntimeProfile, Workload
 
 
@@ -24,6 +24,7 @@ def optimize_pipeline(model: ModelProfile, *, parallelism: Parallelism,
     """
     p = parallelism
     h, w, r = hardware or Hardware(), workload or Workload(), runtime or RuntimeProfile()
+    w = _resolve_workload(model, h, w, r)
     kwargs = dict(hardware=h, workload=w, runtime=r,
                   weight_quantization=weight_quantization, kv_quantization=kv_quantization)
     evaluate = check

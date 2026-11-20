@@ -123,13 +123,28 @@ class SglangTests(unittest.TestCase):
         self.assertEqual((args["tp_size"], args["attn_dp_size"], args["dp_size"], args["ep_size"]),
                          (8, 2, 1, 8))
         self.assertEqual(result.ranks[0].kv_bytes_per_token, 94 * 128 * 2 * 2)
-        self.assertEqual(result.ranks[0].kv_allocated_tokens, 8192 + 64)
-        self.assertEqual(result.ranks[0].kv_required_bytes, (8192 + 64) * 48128)
+        self.assertEqual(args["page_size"], 1)
+        self.assertEqual(result.ranks[0].kv_allocated_tokens, 8192 + 1)
+        self.assertEqual(result.ranks[0].kv_required_bytes, (8192 + 1) * 48128)
         self.assertFalse(result.summary["deployment_verified"])
         found = search(model, runtime=runtime, weight_quantization="bf16", gpu_counts=[8],
                        tp_values=[4], dp_values=[2], pp_values=[1], ep_values=[8], max_gpus=8)
         self.assertEqual(found.minimum_num_gpus, 8)
         self.assertEqual(found.candidates[0].parallelism, replace(plan, stage_layers=(94,)))
+
+    def test_ordinary_attention_applies_alignment_to_the_effective_page_size(self):
+        model = load_model("qwen3-235b-a22b")
+        workload = Workload(max_batch_tokens=65)
+        options = dict(parallelism=Parallelism(8, 1, 8, 1, 8), weight_quantization="bf16")
+        sglang = check(model, workload=workload, runtime=self.runtime, **options)
+        self.assertEqual(sglang.summary["engine_args"]["page_size"], 1)
+        self.assertEqual(sglang.summary["engine_args"]["chunked_prefill_size"], 65)
+        vllm = check(model, workload=workload, **options)
+        self.assertEqual(vllm.summary["engine_args"]["block_size"], 16)
+        self.assertEqual(vllm.summary["engine_args"]["max_num_batched_tokens"], 65)
+        misaligned = check(model, workload=replace(workload, block_size=64), runtime=self.runtime, **options)
+        self.assertEqual(misaligned.status, "unsupported")
+        self.assertIn("SGLang chunked prefill size must be divisible by page_size", misaligned.reasons)
 
     def test_auto_search_keeps_standard_dp_opt_in(self):
         model = load_model("qwen3-235b-a22b")
@@ -263,6 +278,17 @@ class SglangTests(unittest.TestCase):
         self.assertEqual(same_layout.status, "pass")
         self.assertEqual(same_layout.summary["handoff_logical_payload_bytes_per_request"],
                          8192 * 78 * (576 + 132))
+
+    def test_pd_uses_common_page_size_across_hopper_and_blackwell(self):
+        model = load_model("qwen3-235b-a22b")
+        prefill = PDPool(tuple(f"p/gpu{i}" for i in range(8)), hardware=load_hardware("h800-80gb"),
+                         runtime=self.runtime, parallelism=Parallelism(tp=8, ep=8, num_gpus=8))
+        decode = replace(prefill, gpu_ids=tuple(f"d/gpu{i}" for i in range(8)),
+                         hardware=load_hardware("b200-180gb"))
+        result = check_pd(model, prefill=prefill, decode=decode)
+        self.assertEqual(result.status, "pass")
+        self.assertEqual(result.prefill.summary["engine_args"]["page_size"], 64)
+        self.assertEqual(result.decode.summary["engine_args"]["page_size"], 64)
 
     def test_equal_worker_topology_and_no_cross_attention_tp(self):
         optimized = optimize_pipeline(self.model, parallelism=Parallelism(4, 1, 4, 3, 12), runtime=self.runtime)

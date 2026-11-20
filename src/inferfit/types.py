@@ -47,7 +47,8 @@ class Workload:
     context_tokens: int = 8192
     concurrency_per_dp: int = 1
     max_batch_tokens: int = 2048
-    block_size: int = 64
+    # None selects the page size for the model and memory layout.
+    block_size: int | None = None
 
 
 @dataclass(frozen=True)

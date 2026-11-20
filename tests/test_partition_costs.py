@@ -66,7 +66,7 @@ class PartitionCostTests(unittest.TestCase):
 
     def test_rounding_is_per_combined_block_not_per_layer(self):
         state = get_state_model(self.dense)
-        p, w = Parallelism(tp=1, num_gpus=1), Workload(context_tokens=129)
+        p, w = Parallelism(tp=1, num_gpus=1), Workload(context_tokens=129, block_size=64)
         r = RuntimeProfile(kv_pool_overhead_ratio=1.0000001)
         cost = state.prepare_interval_cost(self.dense, p, w, r, "bf16")
         combined = state.allocate(self.dense, p, w, r, "bf16", 0, 2).total_bytes
