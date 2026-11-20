@@ -1,4 +1,4 @@
-# InferFit 输入合同与扩展指南（0.1.1）
+# InferFit 输入合同与扩展指南（0.1.2）
 
 预检层接收统一的 `ModelProfile + Hardware + RuntimeProfile + Parallelism + Workload`。
 `check / search / optimize_pipeline / check_pd` 不依赖模型商品名或硬件 catalog 名称。
@@ -33,6 +33,12 @@ RuntimeProfile 可选 `distribution/build_revision/image/sdk_version`，旧 sche
 
 只有参数量或只有 config.json 时，通常还不足以确定真实权重布局和运行时开销。
 精确推导权重清单通常只需 header，无需将完整权重加载到 GPU。
+
+SGLang 搜索省略 `search.dp_values` 时，在匹配已检查的上游构建后，默认比较
+`DP=1` 与 `attn_dp_size=2/4`。普通 DP 由显式 `dp_values` 选择。设置
+`search.total_concurrency` 时，各候选按总并发除以组数向上取整分配运行槽位，
+`workload.concurrency_per_dp` 此时使用默认值。复查候选时，将结果中的
+`sglang_dp_attention` 和 `concurrency_per_dp` 分别带入 `runtime` 和 `workload`。
 
 ## 1. model.json
 

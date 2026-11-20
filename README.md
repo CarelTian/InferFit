@@ -7,7 +7,7 @@ and serving peaks, and memory headroom. It checks supported runtime constraints
 and searches tensor, expert, data, and pipeline parallel configurations without
 loading model weights or installing an inference framework.
 
-**Version:** 0.1.1 · **Python:** 3.11+ · **License:** MIT
+**Version:** 0.1.2 · **Python:** 3.11+ · **License:** MIT
 
 ## Features
 
@@ -123,9 +123,15 @@ compatibility status. This distinction does not change deployment verification.
 
 - GPU count is `TP * DP * PP`; EP reuses the appropriate expert mesh.
 - `concurrency_per_dp` is per attention replica, not total concurrency.
+- Set `total_concurrency=N` on `search()` (JSON: `search.total_concurrency`) to compare
+  all layouts at the same total running-request target. Each replica budgets
+  `ceil(N / DP)` slots. Leave `workload.concurrency_per_dp` at its default when
+  supplying a total. Without a total, the per-replica workload is used as supplied.
 - `context_tokens` includes prompt tokens and generated or reserved output tokens.
 - `stage_layers` specifies contiguous PP layer counts; `optimize_pp=True` searches them.
-- Candidates are sorted by GPU count, DP, descending minimum headroom, PP, TP, then EP.
+- For the automatic SGLang search, candidates are ranked by GPU count, node count,
+  and then largest minimum GPU headroom. Explicit DP searches and other engines
+  retain the existing order: GPU count, DP, descending minimum headroom, PP, TP, EP.
 - Reported minimum GPU count applies only to the enumerated search space.
 - Ranking optimizes capacity/resource use, not inference latency or throughput.
 
@@ -193,7 +199,13 @@ Runnable check/search/P-D examples are in [`examples/hardware`](examples/hardwar
 
 ### SGLang DP Attention
 
-Set `RuntimeProfile.sglang(sglang_dp_attention=True)` or
+With the pinned SGLang runtime, omitting `dp_values` searches a single model
+instance (`DP=1`) and DP Attention groups of size 2 and 4. The engine's model
+and topology checks screen each candidate. To search standard DP explicitly,
+pass `dp_values=[1, 2, 4]` with `RuntimeProfile.sglang()`.
+
+For a fixed layout or an explicit DP Attention search, set
+`RuntimeProfile.sglang(sglang_dp_attention=True)` or
 `"sglang_dp_attention": true` in a SGLang scenario's runtime object. In InferFit,
 `tp` is the width of each attention group and `dp` is the group count. A candidate
 with `tp=4, dp=2, ep=8, pp=1` maps to SGLang `tp_size=8, attn_dp_size=2,
@@ -274,12 +286,14 @@ inferfit search examples/h800-glm51-sglang-search.json
 
 `search` returns evaluation totals, the minimum GPU count, ranked candidates,
 and up to three aggregate rejection reasons. Each candidate includes its resolved
-`parallelism` (with PP layer counts), capacity metrics, and compatibility status.
+`parallelism` (with PP layer counts), `sglang_dp_attention`, `concurrency_per_dp`,
+capacity metrics, and compatibility status.
 Set `search.limit` in the scenario JSON or pass `limit` to `search()` to cap
 the number of returned candidates after ranking.
-To get rank details or launch arguments, use the selected candidate's
-`parallelism` with the same model, hardware, runtime, and workload in `check`
-or `analyze`.
+To get rank details or launch arguments, pass the selected candidate's
+`parallelism` to `check` or `analyze`, and set `runtime.sglang_dp_attention` and
+`workload.concurrency_per_dp` to the values returned on the candidate. Reuse the
+other settings from the search scenario.
 
 `check`, `analyze`, and `pd-check` return exit code 0 when their memory/capacity check
 passes. `search` returns 0 when candidates exist. An unsuccessful check or
@@ -324,7 +338,6 @@ python -m build
 
 The package version is defined once in `src/inferfit/_version.py`. Setuptools reads
 that value for wheel/sdist metadata, and the SDK exports it as `inferfit.__version__`.
-The fixed repository version is **0.1.1**.
 
 ## Documentation and contributing
 

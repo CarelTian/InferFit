@@ -17,7 +17,7 @@ def test_fixed_version_has_one_build_source():
     assert "version" not in config["project"]
     assert "version" in config["project"]["dynamic"]
     assert config["tool"]["setuptools"]["dynamic"]["version"]["attr"] == "inferfit._version.__version__"
-    assert inferfit.__version__ == version("inferfit") == "0.1.1"
+    assert inferfit.__version__ == version("inferfit") == "0.1.2"
 
 
 def test_backend_catalog_lists_maintained_upstream_contracts():

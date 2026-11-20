@@ -131,6 +131,27 @@ class SglangTests(unittest.TestCase):
         self.assertEqual(found.minimum_num_gpus, 8)
         self.assertEqual(found.candidates[0].parallelism, replace(plan, stage_layers=(94,)))
 
+    def test_auto_search_keeps_standard_dp_opt_in(self):
+        model = load_model("qwen3-235b-a22b")
+        options = dict(runtime=self.runtime, tp_values=[4], pp_values=[1],
+                       ep_values=[4], max_gpus=8, total_concurrency=7)
+        auto = search(model, **options)
+        self.assertEqual([c.parallelism.dp for c in auto.candidates], [1, 2])
+        self.assertEqual([c.sglang_dp_attention for c in auto.candidates], [False, True])
+        self.assertEqual([c.concurrency_per_dp for c in auto.candidates], [7, 4])
+        explicit = search(model, dp_values=[2], **options)
+        self.assertEqual(len(explicit.candidates), 1)
+        self.assertEqual(explicit.candidates[0].parallelism.dp, 2)
+        self.assertFalse(explicit.candidates[0].sglang_dp_attention)
+        self.assertEqual(explicit.candidates[0].concurrency_per_dp, 4)
+
+    def test_total_concurrency_does_not_override_per_group_input(self):
+        with self.assertRaisesRegex(ValueError, "total_concurrency must be a positive integer"):
+            search(self.model, runtime=self.runtime, total_concurrency=True)
+        with self.assertRaisesRegex(ValueError, "not both"):
+            search(self.model, runtime=self.runtime, total_concurrency=5,
+                   workload=Workload(concurrency_per_dp=2))
+
     def test_dense_qwen3_dp_attention_weight_and_cache_geometry(self):
         model = from_config(dict(model_type="qwen3", hidden_size=512, intermediate_size=1024,
                                  num_hidden_layers=4, num_attention_heads=8, num_key_value_heads=2,
@@ -337,6 +358,10 @@ class SglangTests(unittest.TestCase):
                 self.assertEqual(result.status, "unsupported")
                 self.assertTrue(any("dense model_type=" in reason for reason in result.reasons))
                 self.assertFalse(any("only for GLM MLA/DSA" in reason for reason in result.reasons))
+        found = search(model, runtime=self.runtime, tp_values=[2], pp_values=[1],
+                       max_gpus=8, weight_quantization="bf16")
+        self.assertEqual([c.parallelism.dp for c in found.candidates], [1])
+        self.assertGreater(found.compatibility_counts.get("unsupported", 0), 0)
 
 
 if __name__ == "__main__":

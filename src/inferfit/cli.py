@@ -94,7 +94,7 @@ def evaluate_document(document: dict[str, Any], *, mode: str = "check", base: Pa
             raise ValueError("Search scenarios use degree ranges; remove fixed parallelism")
         options = document.get("search", {})
         allowed_options = {"tp_values", "dp_values", "pp_values", "ep_values", "gpu_counts",
-                           "max_gpus", "limit", "optimize_pp", "policy"}
+                           "max_gpus", "limit", "optimize_pp", "policy", "total_concurrency"}
         if not isinstance(options, dict) or set(options) - allowed_options:
             raise ValueError("Unknown search options")
         result = search(model, **options, **kwargs)

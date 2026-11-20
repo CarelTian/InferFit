@@ -21,14 +21,22 @@ def test_cli_search_returns_reusable_layouts_within_small_response(tmp_path):
     limited = json.loads(response)
     assert len(response) < 4096
     assert not limited["deployment_verified"]
-    assert limited["minimum_num_gpus"] == default["minimum_num_gpus"] == 12
-    assert limited["evaluated"] == default["evaluated"] == 94
-    assert limited["passing_candidates_total"] == default["passing_candidates_total"] == 26
+    assert limited["minimum_num_gpus"] == default["minimum_num_gpus"] == 16
+    assert limited["evaluated"] == default["evaluated"] == 132
+    assert limited["passing_candidates_total"] == default["passing_candidates_total"] == 87
     assert len(default["candidates"]) == 10
     assert limited["candidates"] == default["candidates"][:3]
     document.pop("search")
-    for brief in limited["candidates"]:
-        checked = evaluate_document({**document, "parallelism": brief["parallelism"]})
+    assert {brief["sglang_dp_attention"] for brief in default["candidates"]} == {True, False}
+    for brief in default["candidates"]:
+        dp = brief["parallelism"]["dp"]
+        assert brief["sglang_dp_attention"] == (dp > 1)
+        assert brief["concurrency_per_dp"] == (3 + dp - 1) // dp
+        checked = evaluate_document({
+            **document, "parallelism": brief["parallelism"],
+            "runtime": {**document["runtime"], "sglang_dp_attention": brief["sglang_dp_attention"]},
+            "workload": {**document["workload"], "concurrency_per_dp": brief["concurrency_per_dp"]},
+        })
         assert brief["capacity"]["status"] == "pass"
         assert brief["compatibility"]["status"] == "supported"
         assert brief["static_candidate"]
@@ -37,4 +45,5 @@ def test_cli_search_returns_reusable_layouts_within_small_response(tmp_path):
         assert "ranks" not in brief_memory
         assert brief["parallelism"]["stage_layers"] == checked["summary"]["stage_layers"]
         assert brief_memory["summary"]["minimum_headroom_bytes"] == checked["summary"]["minimum_headroom_bytes"]
+        assert checked["summary"]["engine_args"]["attn_dp_size"] == dp
         assert "engine_args" not in brief_memory["summary"]

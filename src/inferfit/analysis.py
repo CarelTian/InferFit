@@ -118,40 +118,67 @@ def search(model: ModelProfile, *, hardware: Hardware | None = None,
                 workload: Workload | None = None, runtime: RuntimeProfile | None = None,
                 weight_quantization: str = "fp8_block", kv_quantization: str = "bf16",
                 assumptions: MemoryAssumptions | None = None, policy: str = "static",
-                tp_values: Iterable[int] = (1, 2, 4, 8), dp_values: Iterable[int] = (1, 2, 4),
+                tp_values: Iterable[int] = (1, 2, 4, 8), dp_values: Iterable[int] | None = None,
                 pp_values: Iterable[int] = tuple(range(1, 17)), ep_values: Iterable[int] | None = None,
                 gpu_counts: Iterable[int] | None = None, max_gpus: int = 64, limit: int = 20,
-                optimize_pp: bool = True) -> PlanSearchResult:
-    """Find and rank candidate layouts with capacity and compatibility summaries."""
+                optimize_pp: bool = True, total_concurrency: int | None = None) -> PlanSearchResult:
+    """Find and rank candidate layouts with capacity and compatibility summaries.
+
+    With inspected SGLang and no explicit DP degrees, search a single instance
+    and DP Attention. Explicit degrees retain the requested runtime's DP mode.
+    A total concurrency target is rounded up per group for each candidate;
+    otherwise the workload's per-group concurrency is used as supplied.
+    """
     if policy not in {"static", "capacity"}:
         raise ValueError("policy must be static or capacity")
     if type(optimize_pp) is not bool:
         raise ValueError("optimize_pp must be boolean")
     if type(max_gpus) is not int or max_gpus <= 0 or type(limit) is not int or limit <= 0:
         raise ValueError("max_gpus and limit must be positive integers")
-    tps, dps, pps = (_degrees(v, n) for v, n in
-                     [(tp_values, "tp_values"), (dp_values, "dp_values"), (pp_values, "pp_values")])
+    tps = _degrees(tp_values, "tp_values")
+    pps = _degrees(pp_values, "pp_values")
     eps = _degrees(ep_values, "ep_values") if ep_values is not None else None
     gpu_counts = _degrees(gpu_counts, "gpu_counts") if gpu_counts is not None else None
     h, w, r = hardware or Hardware(), workload or Workload(), runtime or RuntimeProfile()
+    if total_concurrency is not None:
+        if type(total_concurrency) is not int or total_concurrency <= 0:
+            raise ValueError("total_concurrency must be a positive integer")
+        if type(w.concurrency_per_dp) is not int or w.concurrency_per_dp != 1:
+            raise ValueError("Use total_concurrency or a nondefault workload.concurrency_per_dp, not both")
     a = assumptions or MemoryAssumptions()
     if not isinstance(a, MemoryAssumptions):
         raise TypeError("assumptions must be MemoryAssumptions")
     memory_runtime = _memory_runtime(r, a)
     backend = resolve_backend(h, r)
-    # Resolve layout/identity once per search, outside candidate and PP loops.
+    auto_attention = (dp_values is None and r.engine == "sglang"
+                      and r.sglang_dp_attention is False and backend.kind == "inspected")
+    if dp_values is not None:
+        dp_layouts = [(dp, r) for dp in _degrees(dp_values, "dp_values")]
+    elif auto_attention:
+        attention = replace(r, sglang_dp_attention=True)
+        dp_layouts = [(1, r), (2, attention), (4, attention)]
+    elif r.engine == "sglang" and r.sglang_dp_attention is not True:
+        dp_layouts = [(1, r)]
+    else:
+        dp_layouts = [(dp, r) for dp in (1, 2, 4)]
+    # The inspected adapter is shared by both SGLang modes.
     adapter = get_adapter(r if backend.kind == "inspected" else memory_runtime)
     candidates, cc, bc, rejected = [], Counter(), Counter(), Counter()
-    for tp, dp, pp in product(tps, dps, pps):
+    for tp, (dp, candidate_runtime), pp in product(tps, dp_layouts, pps):
         gpus = tp * dp * pp
         if gpus > max_gpus or (gpu_counts is not None and gpus not in gpu_counts):
             continue
         p = Parallelism(tp, dp, 1, pp, gpus)
-        choices = eps or (adapter.expert_choices(p, r if backend.kind == "inspected" else memory_runtime)
+        candidate_workload = w if total_concurrency is None else replace(
+            w, concurrency_per_dp=(total_concurrency + dp - 1) // dp)
+        candidate_reference = (memory_runtime if candidate_runtime is r else replace(
+            memory_runtime, sglang_dp_attention=candidate_runtime.sglang_dp_attention))
+        placement_runtime = candidate_runtime if backend.kind == "inspected" else candidate_reference
+        choices = eps or (adapter.expert_choices(p, placement_runtime)
                           if model.architecture != "gqa" else [1])
         for ep in choices:
-            result = _analyze(model, h, replace(p, ep=ep), w, r, weight_quantization,
-                              kv_quantization, a, memory_runtime, backend, optimize_pp)
+            result = _analyze(model, h, replace(p, ep=ep), candidate_workload, candidate_runtime,
+                              weight_quantization, kv_quantization, a, candidate_reference, backend, optimize_pp)
             cc[result.capacity.status] += 1
             bc[result.compatibility.status] += 1
             if result.capacity.status == "pass" and (policy == "capacity" or result.static_candidate):
@@ -168,15 +195,23 @@ def search(model: ModelProfile, *, hardware: Hardware | None = None,
                     }),
                     compatibility=CompatibilitySummary(compatibility.status, compatibility.backend_id),
                     static_candidate=result.static_candidate,
+                    sglang_dp_attention=candidate_runtime.sglang_dp_attention,
+                    concurrency_per_dp=candidate_workload.concurrency_per_dp,
                 ))
             else:
                 reasons = list(result.capacity.reasons)
                 if policy == "static" and result.compatibility.status != "supported":
                     reasons.extend(result.compatibility.reasons)
                 rejected.update(iter(dict.fromkeys(reasons)))
-    candidates.sort(key=lambda x: (x.parallelism.num_gpus, x.parallelism.dp,
-                                   -x.capacity.summary["minimum_headroom_bytes"],
-                                   x.parallelism.pp, x.parallelism.tp, x.parallelism.ep))
+    def rank(candidate):
+        p = candidate.parallelism
+        summary = candidate.capacity.summary
+        if auto_attention:
+            return (p.num_gpus, summary["nodes_required"], -summary["minimum_headroom_bytes"],
+                    p.pp, p.tp, p.dp, p.ep)
+        return (p.num_gpus, p.dp, -summary["minimum_headroom_bytes"], p.pp, p.tp, p.ep)
+
+    candidates.sort(key=rank)
     if not cc:
         rejected["No degree combination matches max_gpus and gpu_counts"] = 1
     return PlanSearchResult(candidates[:limit], sum(cc.values()), dict(cc), dict(bc),

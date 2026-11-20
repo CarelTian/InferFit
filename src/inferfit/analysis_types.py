@@ -70,6 +70,8 @@ class PlanSearchCandidate:
     capacity: CapacitySummary
     compatibility: CompatibilitySummary
     static_candidate: bool
+    sglang_dp_attention: bool = False
+    concurrency_per_dp: int = 1
 
 
 @dataclass

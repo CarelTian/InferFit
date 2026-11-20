@@ -23,11 +23,7 @@
       4,
       8
     ],
-    "dp_values": [
-      1,
-      2,
-      4
-    ],
+    "total_concurrency": 3,
     "pp_values": [
       1,
       2,
